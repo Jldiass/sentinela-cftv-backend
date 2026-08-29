@@ -26,6 +26,7 @@ def test_camera_event_and_recording_flow(monkeypatch):
         health = client.get("/health")
         assert health.status_code == 200
         assert health.json()["ok"] is True
+        assert health.json()["effective_retention_hours"] == 168
 
         created = client.post(
             "/api/v1/cameras",
@@ -42,6 +43,7 @@ def test_camera_event_and_recording_flow(monkeypatch):
         camera = created.json()
         camera_id = camera["id"]
         original_key = camera["stream_key"]
+        assert camera["effective_retention_hours"] == 168
 
         listed = client.get("/api/v1/cameras")
         assert listed.status_code == 200

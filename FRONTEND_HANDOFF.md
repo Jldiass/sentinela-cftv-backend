@@ -52,6 +52,7 @@ export interface Camera {
   status: CameraStatus;
   rtmp_url: string;
   hls_url: string;
+  effective_retention_hours: number;
 }
 
 export interface Recording {
@@ -122,7 +123,7 @@ O cliente HTTP deve ser a única camada que conhece a variável `VITE_API_URL`. 
 ### Cadastro
 
 - após `POST /cameras`, exiba `rtmp_url` com botão de copiar;
-- `retention_days` deve ser enviado como `7` e pode aparecer bloqueado na interface;
+- `retention_days` deve ser enviado como `7`; mostre `effective_retention_hours` como a retenção real do ambiente;
 - para desativar sem perder cadastro, use `PATCH {"enabled": false}`;
 - exclusão e rotação de chave podem retornar `409` se o canal estiver conectado.
 

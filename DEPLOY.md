@@ -13,12 +13,33 @@ Como referência, oito câmeras a 2 Mbit/s consomem aproximadamente 1,2 TB em se
 
 Não use hospedagem serverless para este serviço. RTMP contínuo, FFmpeg/MediaMTX e gravações exigem um servidor persistente. Para o primeiro ambiente, uma VPS Ubuntu é a opção mais simples.
 
+## Dimensionamento recomendado
+
+O backend apenas remuxa H.264/AAC para HLS; ele não transcodifica. Para até oito canais, comece com 4 vCPU, 8 GB de RAM, porta de pelo menos 200 Mbit/s e armazenamento útil conforme o bitrate:
+
+| Bitrate por câmera | Sete dias / 8 câmeras | Disco recomendado |
+|---:|---:|---:|
+| 1 Mbit/s | ~605 GB | 800 GB |
+| 1,5 Mbit/s | ~907 GB | 1,2 TB |
+| 2 Mbit/s | ~1,21 TB | 1,5 TB |
+| 3 Mbit/s | ~1,81 TB | 2,2 TB |
+
+Use H.264 + AAC diretamente na câmera. Se houver transcodificação, o dimensionamento de CPU muda bastante.
+
 ## Primeira publicação
 
 ```bash
 git clone URL_DO_REPOSITORIO
 cd sentinela-cftv-backend
 cp .env.production.example .env.production
+```
+
+Para o beta gratuito com disco reduzido, use `cp .env.free-beta.example .env.production`. Essa configuração mantém até oito cadastros, mas reduz a retenção efetiva para dez horas. A API devolve `effective_retention_hours` para o frontend exibir o valor verdadeiro.
+
+Em uma VPS Ubuntu nova, o script abaixo instala Docker, configura o firewall e cria as pastas persistentes:
+
+```bash
+sudo ./scripts/prepare-ubuntu-server.sh
 ```
 
 Gere o hash da senha que protegerá painel, API, HLS e playback:
@@ -30,8 +51,7 @@ docker run --rm caddy:2.10-alpine caddy hash-password --plaintext 'SENHA_FORTE'
 Edite `.env.production`. Informe domínio, e-mail, senha alfanumérica forte do PostgreSQL, usuário e o hash gerado. Mantenha o hash entre aspas simples. Depois execute:
 
 ```bash
-docker compose --env-file .env.production -f compose.prod.yml up -d --build
-docker compose --env-file .env.production -f compose.prod.yml ps
+./scripts/deploy-production.sh
 ```
 
 Acesse `https://SEU_DOMINIO/docs`. O navegador solicitará o usuário e a senha definidos no Caddy.
@@ -50,7 +70,7 @@ O frontend deve definir `VITE_API_URL=https://SEU_DOMINIO/api/v1`. Se for hosped
 
 ```bash
 git pull --ff-only
-docker compose --env-file .env.production -f compose.prod.yml up -d --build
+./scripts/deploy-production.sh
 ```
 
 ## Backup e operação

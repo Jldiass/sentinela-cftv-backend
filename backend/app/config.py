@@ -1,3 +1,5 @@
+import re
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -8,6 +10,7 @@ class Settings(BaseSettings):
     public_rtmp_base_url: str = "rtmp://localhost:1935"
     public_hls_base_url: str = "http://localhost:8888"
     public_playback_base_url: str = "http://localhost:9996"
+    record_delete_after: str = "7d"
     camera_limit: int = 8
     unstable_after_seconds: int = 20
     api_prefix: str = "/api/v1"
@@ -25,6 +28,15 @@ class Settings(BaseSettings):
     @staticmethod
     def clean_base_url(value: str) -> str:
         return value.rstrip("/")
+
+    @property
+    def effective_retention_hours(self) -> int:
+        match = re.fullmatch(r"(\d+)([smhd])", self.record_delete_after.strip())
+        if not match:
+            raise ValueError("RECORD_DELETE_AFTER deve usar s, m, h ou d; exemplo: 10h")
+        value = int(match.group(1))
+        multiplier = {"s": 1, "m": 60, "h": 3600, "d": 86400}[match.group(2)]
+        return max(1, round(value * multiplier / 3600))
 
 
 settings = Settings()

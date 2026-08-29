@@ -17,6 +17,7 @@ def test_health_contract():
     assert payload["database"] == "up"
     assert payload["mediamtx"] == "up"
     assert payload["version"] == "0.2.0"
+    assert payload["effective_retention_hours"] >= 1
 
 
 def test_camera_crud_and_publish_authorization():

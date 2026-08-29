@@ -1,3 +1,7 @@
+{
+    email {$CADDY_ACME_EMAIL}
+}
+
 {$PUBLIC_DOMAIN} {
     encode zstd gzip
 

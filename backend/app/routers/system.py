@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from ..config import settings
 from ..database import get_db
 from ..schemas import HealthOut
 from ..services.mediamtx import MediaMTXUnavailable, mediamtx
@@ -28,4 +29,5 @@ async def health(db: Session = Depends(get_db)):
         mediamtx=mediamtx_status,
         active_streams=len(paths),
         version="0.2.0",
+        effective_retention_hours=settings.effective_retention_hours,
     )

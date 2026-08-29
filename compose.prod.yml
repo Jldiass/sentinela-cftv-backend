@@ -8,7 +8,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-cftv}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - ${POSTGRES_DATA_PATH:-/srv/sentinela/postgres}:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cftv} -d ${POSTGRES_DB:-cftv}"]
       interval: 5s
@@ -18,11 +18,13 @@ services:
 
   mediamtx:
     image: bluenviron/mediamtx:1.20.1
+    environment:
+      MTX_PATHDEFAULTS_RECORDDELETEAFTER: ${RECORD_DELETE_AFTER:-7d}
     ports:
       - "1935:1935"
     volumes:
       - ./mediamtx/mediamtx.yml:/mediamtx.yml:ro
-      - recordings_data:/recordings
+      - ${RECORDINGS_PATH:-/srv/sentinela/recordings}:/recordings
     restart: unless-stopped
 
   backend:
@@ -34,6 +36,7 @@ services:
       PUBLIC_RTMP_BASE_URL: rtmp://${PUBLIC_DOMAIN}:1935
       PUBLIC_HLS_BASE_URL: https://${PUBLIC_DOMAIN}/hls
       PUBLIC_PLAYBACK_BASE_URL: https://${PUBLIC_DOMAIN}/playback
+      RECORD_DELETE_AFTER: ${RECORD_DELETE_AFTER:-7d}
       CAMERA_LIMIT: ${CAMERA_LIMIT:-8}
       UNSTABLE_AFTER_SECONDS: ${UNSTABLE_AFTER_SECONDS:-20}
       API_PREFIX: /api/v1
@@ -44,7 +47,7 @@ services:
       mediamtx:
         condition: service_started
     volumes:
-      - recordings_data:/recordings:ro
+      - ${RECORDINGS_PATH:-/srv/sentinela/recordings}:/recordings:ro
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 10s
@@ -58,7 +61,7 @@ services:
       PUBLIC_DOMAIN: ${PUBLIC_DOMAIN:?Defina PUBLIC_DOMAIN}
       CADDY_ADMIN_USER: ${CADDY_ADMIN_USER:?Defina CADDY_ADMIN_USER}
       CADDY_ADMIN_PASSWORD_HASH: ${CADDY_ADMIN_PASSWORD_HASH:?Defina CADDY_ADMIN_PASSWORD_HASH}
-      CADDY_ACME_EMAIL: ${CADDY_ACME_EMAIL:-}
+      CADDY_ACME_EMAIL: ${CADDY_ACME_EMAIL:?Defina CADDY_ACME_EMAIL}
     ports:
       - "80:80"
       - "443:443"
@@ -73,7 +76,5 @@ services:
     restart: unless-stopped
 
 volumes:
-  postgres_data:
-  recordings_data:
   caddy_data:
   caddy_config:

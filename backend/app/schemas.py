@@ -37,6 +37,7 @@ class CameraOut(CameraBase):
     status: Literal["online", "offline", "unstable"] = "offline"
     rtmp_url: str = ""
     hls_url: str = ""
+    effective_retention_hours: int
 
 
 class StreamCredentials(BaseModel):
@@ -76,3 +77,4 @@ class HealthOut(BaseModel):
     mediamtx: Literal["up", "down"]
     active_streams: int
     version: str
+    effective_retention_hours: int

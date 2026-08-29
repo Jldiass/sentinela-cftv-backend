@@ -36,6 +36,7 @@ def camera_output(camera: Camera, status: str = "offline") -> CameraOut:
         status=status,
         rtmp_url=credentials.rtmp_url,
         hls_url=credentials.hls_url,
+        effective_retention_hours=settings.effective_retention_hours,
     )
 
 

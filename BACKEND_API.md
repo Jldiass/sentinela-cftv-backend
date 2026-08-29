@@ -31,7 +31,8 @@ Campos importantes da resposta:
   "enabled": true,
   "status": "online",
   "rtmp_url": "rtmp://cftv.exemplo.com:1935/cam-chave-gerada",
-  "hls_url": "https://cftv.exemplo.com/hls/cam-chave-gerada/index.m3u8"
+  "hls_url": "https://cftv.exemplo.com/hls/cam-chave-gerada/index.m3u8",
+  "effective_retention_hours": 168
 }
 ```
 
@@ -54,7 +55,7 @@ Valores de `status`: `online`, `unstable` e `offline`. O frontend deve consultar
 
 O backend gera a chave e devolve a URL RTMP completa. O limite atual é de 8 câmeras.
 
-Neste MVP, a retenção efetiva é fixa em 7 dias. O backend rejeita outros valores para não prometer ao frontend uma configuração que o gravador ainda não aplica individualmente.
+O campo `retention_days` representa a política-alvo de sete dias. `effective_retention_hours` informa a retenção global realmente aplicada pelo servidor. Na hospedagem beta gratuita ela pode ser menor por limitação de disco.
 
 ### Consultar, editar e remover
 
@@ -115,7 +116,7 @@ Criar disparo:
 `GET /health`
 
 ```json
-{"ok":true,"database":"up","mediamtx":"up","active_streams":2,"version":"0.2.0"}
+{"ok":true,"database":"up","mediamtx":"up","active_streams":2,"version":"0.2.0","effective_retention_hours":168}
 ```
 
 Erros seguem o formato FastAPI:

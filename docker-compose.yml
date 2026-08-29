@@ -16,6 +16,8 @@ services:
 
   mediamtx:
     image: bluenviron/mediamtx:1.20.1
+    environment:
+      MTX_PATHDEFAULTS_RECORDDELETEAFTER: ${RECORD_DELETE_AFTER:-7d}
     ports:
       - "1935:1935"
       - "8888:8888"
@@ -35,6 +37,7 @@ services:
       PUBLIC_RTMP_BASE_URL: ${PUBLIC_RTMP_BASE_URL:-rtmp://localhost:1935}
       PUBLIC_HLS_BASE_URL: ${PUBLIC_HLS_BASE_URL:-http://localhost:8888}
       PUBLIC_PLAYBACK_BASE_URL: ${PUBLIC_PLAYBACK_BASE_URL:-http://localhost:9996}
+      RECORD_DELETE_AFTER: ${RECORD_DELETE_AFTER:-7d}
       CAMERA_LIMIT: ${CAMERA_LIMIT:-8}
       UNSTABLE_AFTER_SECONDS: ${UNSTABLE_AFTER_SECONDS:-20}
       API_PREFIX: /api/v1
