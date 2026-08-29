@@ -4,7 +4,6 @@ from sqlalchemy.pool import StaticPool
 
 from .config import settings
 
-
 engine_options = {"pool_pre_ping": True}
 if settings.database_url.startswith("sqlite"):
     engine_options.update(

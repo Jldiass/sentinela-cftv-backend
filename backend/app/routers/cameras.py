@@ -1,6 +1,7 @@
 import logging
 import secrets
 from datetime import datetime
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import func, select
@@ -21,6 +22,7 @@ from ..services.presentation import camera_output, recording_output, stream_cred
 
 router = APIRouter(prefix="/cameras", tags=["cameras"])
 logger = logging.getLogger("cftv.cameras")
+DbSession = Annotated[Session, Depends(get_db)]
 
 
 def camera_or_404(camera_id: int, db: Session) -> Camera:
@@ -38,9 +40,7 @@ async def statuses_or_empty() -> dict[str, str]:
 
 
 @router.get("", response_model=list[CameraOut])
-async def list_cameras(
-    include_disabled: bool = Query(False), db: Session = Depends(get_db)
-):
+async def list_cameras(db: DbSession, include_disabled: bool = Query(False)):
     stmt = select(Camera).order_by(Camera.id)
     if not include_disabled:
         stmt = stmt.where(Camera.enabled.is_(True))
@@ -53,7 +53,7 @@ async def list_cameras(
 
 
 @router.post("", response_model=CameraOut, status_code=status.HTTP_201_CREATED)
-def create_camera(payload: CameraCreate, db: Session = Depends(get_db)):
+def create_camera(payload: CameraCreate, db: DbSession):
     total = db.scalar(select(func.count()).select_from(Camera)) or 0
     if total >= settings.camera_limit:
         raise HTTPException(409, f"Limite de {settings.camera_limit} câmeras atingido")
@@ -68,16 +68,14 @@ def create_camera(payload: CameraCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/{camera_id}", response_model=CameraOut)
-async def get_camera(camera_id: int, db: Session = Depends(get_db)):
+async def get_camera(camera_id: int, db: DbSession):
     camera = camera_or_404(camera_id, db)
     stream_statuses = await statuses_or_empty()
     return camera_output(camera, stream_statuses.get(camera.stream_key, "offline"))
 
 
 @router.patch("/{camera_id}", response_model=CameraOut)
-async def update_camera(
-    camera_id: int, payload: CameraUpdate, db: Session = Depends(get_db)
-):
+async def update_camera(camera_id: int, payload: CameraUpdate, db: DbSession):
     camera = camera_or_404(camera_id, db)
     for key, value in payload.model_dump(exclude_unset=True).items():
         setattr(camera, key, value)
@@ -91,7 +89,7 @@ async def update_camera(
 
 
 @router.delete("/{camera_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_camera(camera_id: int, db: Session = Depends(get_db)):
+async def delete_camera(camera_id: int, db: DbSession):
     camera = camera_or_404(camera_id, db)
     stream_statuses = await statuses_or_empty()
     if camera.stream_key in stream_statuses:
@@ -103,12 +101,12 @@ async def delete_camera(camera_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/{camera_id}/stream", response_model=StreamCredentials)
-def get_stream_credentials(camera_id: int, db: Session = Depends(get_db)):
+def get_stream_credentials(camera_id: int, db: DbSession):
     return stream_credentials(camera_or_404(camera_id, db))
 
 
 @router.post("/{camera_id}/stream-key/rotate", response_model=StreamCredentials)
-async def rotate_stream_key(camera_id: int, db: Session = Depends(get_db)):
+async def rotate_stream_key(camera_id: int, db: DbSession):
     camera = camera_or_404(camera_id, db)
     try:
         stream_statuses = await mediamtx.path_statuses()
@@ -128,9 +126,9 @@ async def rotate_stream_key(camera_id: int, db: Session = Depends(get_db)):
 @router.get("/{camera_id}/recordings", response_model=list[RecordingOut])
 async def list_recordings(
     camera_id: int,
+    db: DbSession,
     start: datetime | None = None,
     end: datetime | None = None,
-    db: Session = Depends(get_db),
 ):
     camera = camera_or_404(camera_id, db)
     if start and end and start >= end:

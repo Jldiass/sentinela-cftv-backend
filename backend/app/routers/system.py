@@ -1,5 +1,8 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from ..config import settings
@@ -8,14 +11,15 @@ from ..schemas import HealthOut
 from ..services.mediamtx import MediaMTXUnavailable, mediamtx
 
 router = APIRouter(tags=["system"])
+DbSession = Annotated[Session, Depends(get_db)]
 
 
 @router.get("/health", response_model=HealthOut)
-async def health(db: Session = Depends(get_db)):
+async def health(db: DbSession):
     database_status = "up"
     try:
         db.execute(text("SELECT 1"))
-    except Exception:
+    except SQLAlchemyError:
         database_status = "down"
     mediamtx_status = "up"
     try:
