@@ -27,12 +27,13 @@ webrtcAllowOrigins: ['*']
 
 pathDefaults:
   source: publisher
+  overridePublisher: false
   record: yes
   recordPath: /recordings/%path/%Y-%m-%d_%H-%M-%S-%f
   recordFormat: fmp4
   recordPartDuration: 1s
   recordSegmentDuration: 10s
-  recordDeleteAfter: 7d
+  recordDeleteAfter: 1h
 
 paths:
   all_others:

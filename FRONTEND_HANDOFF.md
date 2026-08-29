@@ -1,49 +1,58 @@
-# Handoff para o desenvolvedor frontend
+# Handoff do frontend — Malupe Cam Beta
 
-Este documento é o ponto de partida para o frontend. O contrato detalhado está em [`BACKEND_API.md`](BACKEND_API.md). A documentação executável fica em `http://localhost:8000/docs` no desenvolvimento e em `https://SEU_DOMINIO/docs` no servidor.
+Este arquivo é o ponto de partida do desenvolvedor frontend. O backend já define cadastro, mídia, status, histórico e alarmes. O frontend deve consumir o contrato, sem montar URLs de vídeo manualmente.
 
-## O que já está pronto no backend
+## Endereços
 
-- API FastAPI versionada em `/api/v1`;
-- PostgreSQL para câmeras e eventos;
-- ingestão RTMP autorizada por chave cadastrada;
-- HLS ao vivo com vídeo e áudio;
-- estados `online`, `unstable` e `offline`;
-- gravação contínua e playback por período;
-- eventos com janela de pré e pós-alarme;
-- rotação de chave RTMP;
-- limite de 8 câmeras;
-- retenção efetiva fixa em 7 dias;
-- OpenAPI e validação consistente de erros.
+Desenvolvimento:
 
-## Endereços locais
+```text
+API:      http://localhost:8000/api/v1
+Swagger:  http://localhost:8000/docs
+OpenAPI:  http://localhost:8000/openapi.json
+Saúde:    http://localhost:8000/health
+```
 
-| Serviço | URL |
-|---|---|
-| API | `http://localhost:8000/api/v1` |
-| Swagger | `http://localhost:8000/docs` |
-| OpenAPI | `http://localhost:8000/openapi.json` |
-| Saúde | `http://localhost:8000/health` |
-| HLS | devolvido no campo `hls_url` |
-| Playback | devolvido no campo `url` ou `playback_url` |
+Servidor público:
 
-Não fixe as portas de mídia no código do frontend. Consuma as URLs completas entregues pela API.
+```text
+API:      https://SEU_DOMINIO/api/v1
+Swagger:  https://SEU_DOMINIO/docs
+Saúde:    https://SEU_DOMINIO/health
+```
 
-## Ambiente público
+Configure no frontend:
 
-Defina `VITE_API_URL=https://SEU_DOMINIO/api/v1`. O servidor público exige autenticação HTTP e entrega API, HLS e playback pelo mesmo domínio HTTPS. Para o primeiro frontend, mantenha tudo no mesmo domínio; isso evita problemas de credenciais e CORS no player.
+```env
+VITE_API_URL=http://localhost:8000/api/v1
+```
 
-## Tipos TypeScript sugeridos
+Em produção, substitua pelo domínio HTTPS. Componentes não devem conhecer `localhost`; apenas o cliente HTTP deve ler `VITE_API_URL`.
+
+## Regra obrigatória de retenção
+
+O beta mantém uma janela móvel global de **1 hora**. O cadastro de câmera não possui campo configurável de retenção.
+
+Exemplo às 17:00:
+
+```text
+Disponível: 16:00 até 17:00
+Expirado:   tudo que começou antes de 16:00
+```
+
+A API devolve `effective_retention_hours: 1`. Use esse campo na interface; não escreva “7 dias” no código ou no layout.
+
+## Tipos TypeScript
 
 ```ts
 export type CameraStatus = "online" | "unstable" | "offline";
+export type ClipStatus = "pending" | "available" | "expired";
 
 export interface Camera {
   id: number;
   name: string;
   location: string;
   audio_enabled: boolean;
-  retention_days: 7;
   pre_alarm_seconds: number;
   post_alarm_seconds: number;
   stream_key: string;
@@ -53,6 +62,14 @@ export interface Camera {
   rtmp_url: string;
   hls_url: string;
   effective_retention_hours: number;
+}
+
+export interface CameraCreate {
+  name: string;
+  location?: string;
+  audio_enabled?: boolean;
+  pre_alarm_seconds?: number;
+  post_alarm_seconds?: number;
 }
 
 export interface Recording {
@@ -69,7 +86,18 @@ export interface AlarmEvent {
   happened_at: string;
   clip_start: string;
   clip_duration: number;
-  playback_url: string;
+  playback_url: string | null;
+  clip_status: ClipStatus;
+  available_until: string;
+}
+
+export interface Health {
+  ok: boolean;
+  database: "up" | "down";
+  mediamtx: "up" | "down";
+  active_streams: number;
+  version: string;
+  effective_retention_hours: number;
 }
 
 export interface ApiError {
@@ -81,59 +109,7 @@ export interface ApiError {
 }
 ```
 
-Os tipos também podem ser gerados automaticamente de `openapi.json` com `openapi-typescript`.
-
-## Estrutura de frontend recomendada
-
-```text
-src/
-├── api/
-│   ├── client.ts          # base URL, JSON, ApiError e timeout
-│   ├── cameras.ts         # CRUD, stream e gravações
-│   └── events.ts          # alarmes e playback
-├── components/
-│   ├── CameraCard.tsx
-│   ├── CameraStatus.tsx
-│   ├── HlsPlayer.tsx
-│   └── RecordingPlayer.tsx
-├── pages/
-│   ├── MosaicPage.tsx
-│   ├── CamerasPage.tsx
-│   └── HistoryPage.tsx
-├── hooks/
-│   ├── useCameras.ts
-│   └── useHlsPlayer.ts
-└── types/
-    └── api.ts
-```
-
-O cliente HTTP deve ser a única camada que conhece a variável `VITE_API_URL`. Componentes não devem fazer `fetch` diretamente.
-
-## Regras de tela
-
-### Mosaico
-
-- consulte `GET /cameras` a cada 10–15 segundos;
-- renderize somente câmeras habilitadas;
-- inicialize HLS apenas para `online` ou `unstable`;
-- destrua a instância `hls.js` ao desmontar o card;
-- comece o `<video>` com `muted` e permita ativação manual do áudio;
-- não trate `unstable` como offline: mostre vídeo enquanto houver stream.
-
-### Cadastro
-
-- após `POST /cameras`, exiba `rtmp_url` com botão de copiar;
-- `retention_days` deve ser enviado como `7`; mostre `effective_retention_hours` como a retenção real do ambiente;
-- para desativar sem perder cadastro, use `PATCH {"enabled": false}`;
-- exclusão e rotação de chave podem retornar `409` se o canal estiver conectado.
-
-### Histórico
-
-- converta seleções locais para UTC com `toISOString()`;
-- consulte `GET /cameras/{id}/recordings?start=...&end=...`;
-- use a URL retornada diretamente em `<video controls>`;
-- não acrescente `format=mp4` novamente;
-- eventos já devolvem a janela pronta em `playback_url`.
+Os tipos podem ser gerados com `openapi-typescript` a partir de `/openapi.json`.
 
 ## Cliente HTTP mínimo
 
@@ -143,14 +119,19 @@ const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000/api/v1";
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
     ...init,
-    headers: { "Content-Type": "application/json", ...init?.headers },
+    headers: {
+      "Content-Type": "application/json",
+      ...init?.headers,
+    },
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: "Falha inesperada" }));
+    const payload = await response.json().catch(() => ({
+      detail: "Falha inesperada",
+    }));
     throw Object.assign(new Error("API request failed"), {
       status: response.status,
-      payload: error,
+      payload,
     });
   }
 
@@ -159,22 +140,146 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 ```
 
-## Checklist antes de integrar
+## Estrutura sugerida
 
-1. Confirmar `GET /health` com `ok: true`.
-2. Abrir `/docs` e conferir a versão `0.2.0`.
-3. Criar uma câmera e copiar `rtmp_url`.
-4. Publicar um stream H.264 + AAC.
-5. Confirmar transição `unstable` → `online`.
-6. Reproduzir `hls_url` com áudio.
-7. Buscar gravações e abrir uma URL MP4.
-8. Criar um evento e abrir `playback_url`.
-9. Testar `404`, `409`, `422` e `503` no tratamento de erros.
+```text
+src/
+├── api/
+│   ├── client.ts
+│   ├── cameras.ts
+│   └── events.ts
+├── components/
+│   ├── CameraCard.tsx
+│   ├── CameraStatus.tsx
+│   ├── HlsPlayer.tsx
+│   ├── RecordingPlayer.tsx
+│   └── RetentionBadge.tsx
+├── hooks/
+│   ├── useCameras.ts
+│   └── useHlsPlayer.ts
+├── pages/
+│   ├── MosaicPage.tsx
+│   ├── CamerasPage.tsx
+│   └── HistoryPage.tsx
+└── types/api.ts
+```
 
-## Limites conhecidos do MVP
+## Ordem recomendada de implementação
 
-- ambiente público protegido por um usuário/senha HTTP compartilhado, ainda sem contas individuais de operadores;
-- retenção global fixa em 7 dias;
-- status `unstable` representa os primeiros 20 segundos após a conexão;
-- gravações preservadas em disco quando o cadastro/evento é removido;
-- o servidor público já usa TLS; contas individuais, permissões, auditoria e observabilidade são evoluções necessárias para uso comercial.
+1. Cliente HTTP e tratamento central de erros.
+2. Página de cadastro/lista/edição de câmeras.
+3. Player HLS e mosaico 1, 4 ou 8 câmeras.
+4. Indicadores de estado com polling.
+5. Busca de gravações limitada à última hora.
+6. Lista de eventos e estados dos clips.
+7. Acabamento visual e responsividade.
+
+## Cadastro de câmera
+
+Crie com `POST /cameras`. Exemplo:
+
+```json
+{
+  "name": "Entrada principal",
+  "location": "Recepção",
+  "audio_enabled": true,
+  "pre_alarm_seconds": 30,
+  "post_alarm_seconds": 60
+}
+```
+
+Após criar, exiba `rtmp_url` com botão de copiar. Não aceite `stream_key` digitada pelo operador; ela é gerada pelo backend.
+
+Não envie `retention_days` ou `retention_hours` no cadastro. A política é global e devolvida em `effective_retention_hours`.
+
+## Mosaico e player HLS
+
+- consulte `GET /cameras` a cada 10–15 segundos;
+- renderize somente câmeras habilitadas;
+- abra HLS para `online` e `unstable`;
+- mostre placeholder para `offline`;
+- comece o `<video>` com `muted` por causa do autoplay;
+- permita que o operador ative áudio manualmente;
+- destrua a instância `hls.js` ao desmontar o card;
+- não recrie o player a cada polling se a URL não mudou.
+
+Safari pode usar HLS nativo. Chrome, Edge e Firefox devem usar `hls.js`.
+
+## Status das câmeras
+
+| Valor | Comportamento de tela |
+|---|---|
+| `online` | verde e player ativo |
+| `unstable` | amarelo e player ativo; canal acabou de conectar |
+| `offline` | vermelho e player parado |
+
+Se `/health` indicar `mediamtx: down`, mostre indisponibilidade do serviço, não converta tudo silenciosamente em falha individual de câmera.
+
+## Histórico de gravações
+
+Use:
+
+```http
+GET /cameras/{id}/recordings?start={RFC3339}&end={RFC3339}
+```
+
+Regras:
+
+- limite o seletor de período à última hora;
+- converta horário local para UTC com `toISOString()`;
+- `start` deve ser anterior a `end`;
+- use a propriedade `url` recebida diretamente em `<video controls>`;
+- lista vazia significa que não há segmento naquele intervalo;
+- não tente recuperar vídeo anterior à janela móvel.
+
+## Eventos e pré-alarme
+
+Ao criar um evento, o backend calcula a janela com os segundos anteriores e posteriores configurados na câmera.
+
+O frontend deve tratar:
+
+| `clip_status` | `playback_url` | Tela |
+|---|---|---|
+| `pending` | `null` | “Finalizando clipe” e atualizar depois |
+| `available` | URL | botão “Reproduzir” |
+| `expired` | `null` | “Vídeo expirado” |
+
+Um evento novo fica `pending` até terminar o pós-alarme. Não renderize um link quando `playback_url` for `null`.
+
+## Erros que precisam de tratamento
+
+| HTTP | Situação comum |
+|---:|---|
+| 404 | câmera/evento inexistente |
+| 409 | limite de 8, câmera conectada durante exclusão/rotação ou câmera desabilitada |
+| 422 | formulário inválido, campo desconhecido ou data fora da retenção |
+| 503 | MediaMTX/playback indisponível |
+
+Formato comum:
+
+```json
+{"detail":"Câmera não encontrada"}
+```
+
+## Checklist de entrega do frontend
+
+- [ ] `GET /health` mostra API e mídia disponíveis.
+- [ ] Nenhum componente contém URL fixa de HLS ou playback.
+- [ ] Cadastro exibe e copia a URL RTMP.
+- [ ] Mosaico reproduz H.264 + AAC.
+- [ ] Áudio só é habilitado após ação do usuário.
+- [ ] Status atualiza sem desmontar players desnecessariamente.
+- [ ] Busca respeita a última hora.
+- [ ] Evento pendente não mostra link quebrado.
+- [ ] Evento disponível abre o MP4.
+- [ ] Erros 404, 409, 422 e 503 têm mensagens amigáveis.
+- [ ] A interface mostra “Histórico: 1 hora”.
+
+## Fora do escopo deste beta
+
+- contas individuais e permissões por operador;
+- PTZ;
+- reconhecimento/analytics;
+- notificações push;
+- retenção individual por câmera;
+- recuperação de arquivos já expirados.

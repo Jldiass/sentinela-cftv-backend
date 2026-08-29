@@ -19,7 +19,7 @@ services:
   mediamtx:
     image: bluenviron/mediamtx:1.20.1
     environment:
-      MTX_PATHDEFAULTS_RECORDDELETEAFTER: ${RECORD_DELETE_AFTER:-7d}
+      MTX_PATHDEFAULTS_RECORDDELETEAFTER: ${RECORD_DELETE_AFTER:-1h}
     ports:
       - "1935:1935"
     volumes:
@@ -36,7 +36,7 @@ services:
       PUBLIC_RTMP_BASE_URL: rtmp://${PUBLIC_DOMAIN}:1935
       PUBLIC_HLS_BASE_URL: https://${PUBLIC_DOMAIN}/hls
       PUBLIC_PLAYBACK_BASE_URL: https://${PUBLIC_DOMAIN}/playback
-      RECORD_DELETE_AFTER: ${RECORD_DELETE_AFTER:-7d}
+      RECORD_DELETE_AFTER: ${RECORD_DELETE_AFTER:-1h}
       CAMERA_LIMIT: ${CAMERA_LIMIT:-8}
       UNSTABLE_AFTER_SECONDS: ${UNSTABLE_AFTER_SECONDS:-20}
       API_PREFIX: /api/v1

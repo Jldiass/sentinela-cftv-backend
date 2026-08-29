@@ -1,12 +1,29 @@
-# Contrato do backend para o frontend
+# Contrato da API — Malupe Cam Beta
 
-Base local: `http://localhost:8000`  
-Base pública: `https://SEU_DOMINIO`  
-API versionada: `/api/v1`  
-OpenAPI interativo: `http://localhost:8000/docs`  
-OpenAPI JSON: `http://localhost:8000/openapi.json`
+Versão: `0.3.0`
+Base local: `http://localhost:8000`
+Prefixo: `/api/v1`
+OpenAPI: `/openapi.json`
+Swagger: `/docs`
 
-O frontend não deve acessar PostgreSQL nem a API administrativa do MediaMTX. Ele conversa com FastAPI para metadados e usa apenas as URLs HLS/playback devolvidas pela API.
+JSON usa nomes em `snake_case`. Datas são RFC3339/ISO 8601 e devem incluir fuso horário, preferencialmente UTC com sufixo `Z`.
+
+## Saúde
+
+### `GET /health`
+
+```json
+{
+  "ok": true,
+  "database": "up",
+  "mediamtx": "up",
+  "active_streams": 2,
+  "version": "0.3.0",
+  "effective_retention_hours": 1
+}
+```
+
+`ok` somente é `true` quando banco e MediaMTX respondem. `effective_retention_hours` é a fonte oficial da retenção mostrada no frontend.
 
 ## Câmeras
 
@@ -14,29 +31,29 @@ O frontend não deve acessar PostgreSQL nem a API administrativa do MediaMTX. El
 
 `GET /api/v1/cameras`
 
-Por padrão retorna somente câmeras habilitadas. Para administração, use `?include_disabled=true`.
-
-Campos importantes da resposta:
+Retorna apenas câmeras habilitadas. Use `?include_disabled=true` na administração.
 
 ```json
-{
-  "id": 1,
-  "name": "Entrada principal",
-  "location": "Recepção",
-  "stream_key": "cam-chave-gerada",
-  "audio_enabled": true,
-  "retention_days": 7,
-  "pre_alarm_seconds": 30,
-  "post_alarm_seconds": 60,
-  "enabled": true,
-  "status": "online",
-  "rtmp_url": "rtmp://cftv.exemplo.com:1935/cam-chave-gerada",
-  "hls_url": "https://cftv.exemplo.com/hls/cam-chave-gerada/index.m3u8",
-  "effective_retention_hours": 168
-}
+[
+  {
+    "id": 1,
+    "name": "Entrada principal",
+    "location": "Recepção",
+    "audio_enabled": true,
+    "pre_alarm_seconds": 30,
+    "post_alarm_seconds": 60,
+    "stream_key": "cam-chave-aleatoria",
+    "enabled": true,
+    "created_at": "2026-08-29T12:00:00Z",
+    "status": "online",
+    "rtmp_url": "rtmp://host:1935/cam-chave-aleatoria",
+    "hls_url": "https://host/hls/cam-chave-aleatoria/index.m3u8",
+    "effective_retention_hours": 1
+  }
+]
 ```
 
-Valores de `status`: `online`, `unstable` e `offline`. O frontend deve consultar a lista a cada 10–15 segundos. Não precisa consultar cada câmera individualmente.
+`status` pode ser `online`, `unstable` ou `offline`.
 
 ### Criar
 
@@ -47,53 +64,92 @@ Valores de `status`: `online`, `unstable` e `offline`. O frontend deve consultar
   "name": "Entrada principal",
   "location": "Recepção",
   "audio_enabled": true,
-  "retention_days": 7,
   "pre_alarm_seconds": 30,
   "post_alarm_seconds": 60
 }
 ```
 
-O backend gera a chave e devolve a URL RTMP completa. O limite atual é de 8 câmeras.
+Resposta: `201` com a câmera completa. O backend gera `stream_key`, `rtmp_url` e `hls_url`. Há no máximo oito cadastros.
 
-O campo `retention_days` representa a política-alvo de sete dias. `effective_retention_hours` informa a retenção global realmente aplicada pelo servidor. Na hospedagem beta gratuita ela pode ser menor por limitação de disco.
+Campos desconhecidos retornam `422`. Não envie retenção no cadastro: ela é global em uma hora.
 
-### Consultar, editar e remover
+### Consultar
 
-- `GET /api/v1/cameras/{id}`
-- `PATCH /api/v1/cameras/{id}` — envie somente campos alterados.
-- `DELETE /api/v1/cameras/{id}` — exige canal offline; remove cadastro e eventos, mas preserva arquivos gravados.
-- `GET /api/v1/cameras/{id}/stream` — devolve chave e URLs.
-- `POST /api/v1/cameras/{id}/stream-key/rotate` — exige canal offline.
+`GET /api/v1/cameras/{camera_id}`
 
-Desabilitar com `PATCH {"enabled": false}` é preferível a excluir quando há histórico relevante.
+Resposta: `200` com a câmera ou `404`.
 
-## Vídeo ao vivo e áudio
+### Editar
 
-Use `hls_url` em um player HLS. Em Chrome/Edge/Firefox, use `hls.js`; em Safari, atribua a URL diretamente ao `<video>`. Comece o player com `muted` por causa das regras de autoplay e ofereça um controle explícito para o operador ativar o áudio.
+`PATCH /api/v1/cameras/{camera_id}`
 
-Nunca monte URLs no frontend. Use exatamente `hls_url`, `rtmp_url` e `playback_url` recebidas.
+Envie somente campos alterados:
+
+```json
+{
+  "name": "Portão social",
+  "enabled": false
+}
+```
+
+Campos aceitos: `name`, `location`, `audio_enabled`, `pre_alarm_seconds`, `post_alarm_seconds` e `enabled`.
+
+### Excluir
+
+`DELETE /api/v1/cameras/{camera_id}`
+
+Resposta `204`. Se houver publicação ativa, retorna `409`; desconecte a câmera antes. A exclusão remove cadastro e eventos relacionados. Arquivos ainda existentes seguem a limpeza automática de uma hora.
+
+### Credenciais de stream
+
+`GET /api/v1/cameras/{camera_id}/stream`
+
+```json
+{
+  "camera_id": 1,
+  "stream_key": "cam-chave-aleatoria",
+  "rtmp_url": "rtmp://host:1935/cam-chave-aleatoria",
+  "hls_url": "https://host/hls/cam-chave-aleatoria/index.m3u8"
+}
+```
+
+### Trocar chave RTMP
+
+`POST /api/v1/cameras/{camera_id}/stream-key/rotate`
+
+Exige canal offline. Retorna `409` se conectado e `503` se não for possível confirmar o estado do MediaMTX. Depois da troca, a câmera deve ser reconfigurada com a nova URL.
+
+## Ao vivo e áudio
+
+O frontend usa `hls_url`. Em Chrome, Edge e Firefox use `hls.js`; Safari pode usar HLS nativo. O elemento `<video>` deve iniciar com `muted` para cumprir as regras de autoplay, oferecendo ativação manual do áudio.
+
+Não monte a URL a partir de `stream_key`. Sempre use `hls_url` devolvida.
 
 ## Gravações
 
-`GET /api/v1/cameras/{id}/recordings?start={RFC3339}&end={RFC3339}`
+### Buscar por período
 
-Resposta:
+```http
+GET /api/v1/cameras/{camera_id}/recordings?start=2026-08-29T15:30:00Z&end=2026-08-29T16:00:00Z
+```
+
+Parâmetros são opcionais. Quando ambos existem, `start` deve ser anterior a `end`.
 
 ```json
 [
   {
-    "start": "2026-08-29T02:28:22Z",
-    "duration": 120.5,
-    "url": "https://cftv.exemplo.com/playback/get?...&format=mp4"
+    "start": "2026-08-29T15:30:00Z",
+    "duration": 600.5,
+    "url": "https://host/playback/get?path=cam-chave-aleatoria&start=...&duration=600.5&format=mp4"
   }
 ]
 ```
 
-`start` deve ser anterior a `end`. Datas devem ser enviadas em UTC/RFC3339. O link `url` pode ser usado em `<video controls>` ou para download.
+Use `url` diretamente no player ou download. Conteúdo anterior à última hora já foi removido e não é recuperável. A limpeza física ocorre por segmentos de 10 segundos, portanto pode existir uma pequena tolerância operacional em torno do limite.
 
 ## Eventos e pré-alarme
 
-Criar disparo:
+### Criar
 
 `POST /api/v1/cameras/{camera_id}/events`
 
@@ -101,38 +157,88 @@ Criar disparo:
 {
   "kind": "zona-03",
   "note": "Movimento na entrada",
-  "happened_at": "2026-08-29T02:29:10Z"
+  "happened_at": "2026-08-29T15:45:10Z"
 }
 ```
 
-`happened_at` é opcional; o servidor usa o horário atual. A resposta contém `clip_start`, `clip_duration` e `playback_url`, calculados com os tempos de pré e pós-alarme da câmera.
+`happened_at` é opcional; sem ele, o backend usa o horário atual. O backend rejeita datas futuras e eventos cujo início do pré-alarme já esteja fora da retenção.
 
-- `GET /api/v1/events?camera_id=1&limit=100`
-- `GET /api/v1/events/{id}`
-- `DELETE /api/v1/events/{id}` — remove o metadado, não o vídeo.
-
-## Saúde e erros
-
-`GET /health`
+Resposta imediatamente após o disparo:
 
 ```json
-{"ok":true,"database":"up","mediamtx":"up","active_streams":2,"version":"0.2.0","effective_retention_hours":168}
+{
+  "id": 10,
+  "camera_id": 1,
+  "kind": "zona-03",
+  "note": "Movimento na entrada",
+  "happened_at": "2026-08-29T15:45:10Z",
+  "clip_start": "2026-08-29T15:44:40Z",
+  "clip_duration": 90,
+  "playback_url": null,
+  "clip_status": "pending",
+  "available_until": "2026-08-29T16:44:40Z"
+}
 ```
 
-Erros seguem o formato FastAPI:
+Estados:
+
+- `pending`: o pós-alarme ainda está sendo gravado; `playback_url` é `null`;
+- `available`: clipe finalizado e dentro da última hora; há URL;
+- `expired`: início do clipe ultrapassou a retenção; não há URL.
+
+Os metadados expirados são removidos em segundo plano a cada minuto.
+
+### Listar
+
+`GET /api/v1/events?camera_id=1&limit=100`
+
+`camera_id` é opcional. `limit` aceita 1–500.
+
+### Consultar e excluir
+
+- `GET /api/v1/events/{event_id}`
+- `DELETE /api/v1/events/{event_id}`
+
+Excluir remove o metadado, não força a exclusão antecipada do arquivo gravado.
+
+## Autorização do MediaMTX
+
+`POST /internal/mediamtx/auth` é interno e não faz parte do contrato do frontend. Em produção, o Caddy bloqueia `/internal/*`. Publicações RTMP somente são aceitas quando o caminho corresponde à chave de uma câmera habilitada.
+
+## Erros
+
+Erro de regra:
 
 ```json
 {"detail":"Câmera não encontrada"}
 ```
 
-Códigos importantes: `404` recurso inexistente, `409` conflito/limite/chave em uso, `422` validação e `503` mídia temporariamente indisponível.
+Erro de validação:
 
-## Ordem recomendada de implementação do frontend
+```json
+{
+  "detail": [
+    {
+      "type": "extra_forbidden",
+      "loc": ["body", "retention_days"],
+      "msg": "Extra inputs are not permitted",
+      "input": 7
+    }
+  ]
+}
+```
 
-1. Cliente HTTP tipado e tratamento central de erros.
-2. Lista/cadastro/edição de câmeras.
-3. Mosaico HLS com áudio controlado pelo operador.
-4. Indicadores de estado com polling a cada 10–15 segundos.
-5. Busca de gravações por período.
-6. Timeline e lista de eventos com playback.
-7. Login individual, permissões e auditoria na evolução para uso comercial.
+| Código | Significado |
+|---:|---|
+| 201 | recurso criado |
+| 204 | exclusão concluída |
+| 404 | recurso não encontrado |
+| 409 | conflito de estado ou limite |
+| 422 | JSON, campo ou data inválida |
+| 503 | serviço de mídia indisponível |
+
+## CORS e ambiente público
+
+Em desenvolvimento, as origens padrão são `localhost:3000`, `localhost:5173` e `localhost:8000`. Em produção, configure `CORS_ORIGINS` com os endereços HTTPS do frontend, separados por vírgula.
+
+API, HLS e playback devem preferencialmente estar no mesmo domínio. O frontend nunca deve acessar as portas administrativas `9996` ou `9997` diretamente.

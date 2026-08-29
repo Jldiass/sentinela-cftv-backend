@@ -6,10 +6,10 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class CameraBase(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     name: str = Field(min_length=2, max_length=100)
     location: str = Field(default="", max_length=160)
     audio_enabled: bool = True
-    retention_days: Literal[7] = 7
     pre_alarm_seconds: int = Field(default=30, ge=0, le=300)
     post_alarm_seconds: int = Field(default=60, ge=1, le=600)
 
@@ -19,10 +19,10 @@ class CameraCreate(CameraBase):
 
 
 class CameraUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     name: str | None = Field(default=None, min_length=2, max_length=100)
     location: str | None = Field(default=None, max_length=160)
     audio_enabled: bool | None = None
-    retention_days: Literal[7] | None = None
     pre_alarm_seconds: int | None = Field(default=None, ge=0, le=300)
     post_alarm_seconds: int | None = Field(default=None, ge=1, le=600)
     enabled: bool | None = None
@@ -54,6 +54,7 @@ class RecordingOut(BaseModel):
 
 
 class EventCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     kind: str = Field(default="alarm", max_length=60)
     note: str = Field(default="", max_length=500)
     happened_at: datetime | None = None
@@ -68,7 +69,9 @@ class EventOut(BaseModel):
     happened_at: datetime
     clip_start: datetime
     clip_duration: int
-    playback_url: str
+    playback_url: str | None
+    clip_status: Literal["pending", "available", "expired"]
+    available_until: datetime
 
 
 class HealthOut(BaseModel):

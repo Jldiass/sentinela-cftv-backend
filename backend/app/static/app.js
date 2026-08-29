@@ -56,7 +56,7 @@ document.getElementById("cameraForm").onsubmit = async (event) => {
   const form = new FormData(event.target);
   const body = {
     name: form.get("name"), location: form.get("location"), audio_enabled: form.has("audio_enabled"),
-    retention_days: +form.get("retention_days"), pre_alarm_seconds: +form.get("pre_alarm_seconds"),
+    pre_alarm_seconds: +form.get("pre_alarm_seconds"),
     post_alarm_seconds: +form.get("post_alarm_seconds"),
   };
   const message = document.getElementById("formMsg");
@@ -91,7 +91,7 @@ async function findRecordings() {
 async function loadEvents() {
   const rows = await api(`${API}/events`);
   document.getElementById("events").innerHTML = rows.length
-    ? rows.map((event) => `<div class="event-row"><span>${esc(event.kind)} · câmera ${event.camera_id}<small> · ${new Date(event.happened_at).toLocaleString()}</small></span><a target="_blank" href="${esc(event.playback_url)}">Ver clipe</a></div>`).join("")
+    ? rows.map((event) => `<div class="event-row"><span>${esc(event.kind)} · câmera ${event.camera_id}<small> · ${new Date(event.happened_at).toLocaleString()} · ${esc(event.clip_status)}</small></span>${event.playback_url ? `<a target="_blank" href="${esc(event.playback_url)}">Ver clipe</a>` : "<span>Vídeo indisponível</span>"}</div>`).join("")
     : "<p>Nenhum evento registrado.</p>";
 }
 

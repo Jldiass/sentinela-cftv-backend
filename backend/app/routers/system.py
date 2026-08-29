@@ -28,6 +28,6 @@ async def health(db: Session = Depends(get_db)):
         database=database_status,
         mediamtx=mediamtx_status,
         active_streams=len(paths),
-        version="0.2.0",
+        version=settings.app_version,
         effective_retention_hours=settings.effective_retention_hours,
     )

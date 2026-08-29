@@ -1,74 +1,159 @@
-# Sentinela — backend CFTV
+# Malupe Cam — Backend CFTV Beta
 
-MVP próprio para até 8 câmeras: RTMP com áudio, HLS ao vivo, mosaico, status, gravação 24h, retenção de 7 dias, busca temporal e eventos com pré/pós-alarme.
+Backend próprio para monitoramento de até **8 câmeras RTMP**, com áudio, HLS ao vivo, gravação contínua, histórico móvel de **1 hora**, status de conexão e eventos com pré/pós-alarme.
 
-O backend é a fonte oficial do projeto. O contrato está em [`BACKEND_API.md`](BACKEND_API.md), o handoff está em [`FRONTEND_HANDOFF.md`](FRONTEND_HANDOFF.md) e a publicação pública está em [`DEPLOY.md`](DEPLOY.md). A tela incluída é apenas um demonstrador.
+Versão atual da API: **0.3.0**.
 
-## Componentes
+## Regra do histórico de 1 hora
 
-- **MediaMTX 1.20.1:** ingestão RTMP, HLS, gravação fMP4 e playback.
-- **FastAPI + PostgreSQL:** cadastro, chaves individuais, estado, gravações e eventos.
-- **Frontend web:** mosaico, cadastro e histórico, servido pelo backend.
-- **FFmpeg:** gerador opcional de streams de teste com vídeo e áudio.
+A retenção é global e automática. O MediaMTX grava arquivos fMP4 em segmentos de 10 segundos e remove cada segmento quando ele completa uma hora.
 
-## Início rápido
+Exemplo às 17:00:
 
-1. Copie `.env.example` para `.env` e troque a senha do banco.
-2. Execute `docker compose up --build -d`.
-3. Abra `http://localhost:8000`.
-4. Cadastre de 1 a 8 câmeras e copie a URL RTMP exibida.
-5. Configure a câmera/encoder para publicar H.264 + AAC nessa URL. A chave já faz parte do caminho.
+```text
+16:00 ------------------------------ 17:00
+       conteúdo disponível
 
-Verificações:
+15:59:50 -> apagado automaticamente
+16:00:00 -> ainda disponível
+```
 
-- API e tela: `http://localhost:8000`
-- documentação da API: `http://localhost:8000/docs`
-- saúde: `http://localhost:8000/health`
-- logs: `docker compose logs -f backend mediamtx`
+É uma janela móvel: não existe uma limpeza única no fim do dia. A remoção acontece gradualmente, acompanhando os segmentos. A API informa `effective_retention_hours: 1` para o frontend exibir a política real.
 
-## Servidor público
+## O que está pronto
 
-O arquivo `compose.prod.yml` sobe o conjunto completo em uma VPS com persistência, HTTPS automático e autenticação HTTP. Ele publica somente `80/443` para o painel/API/mídias e `1935` para ingestão RTMP. Consulte [`DEPLOY.md`](DEPLOY.md) antes de apontar as câmeras.
+- cadastro, edição, desativação e exclusão de câmeras;
+- limite global de 8 câmeras;
+- chave e URL RTMP individual geradas pelo backend;
+- autorização de publicação: somente chaves cadastradas e habilitadas publicam;
+- vídeo H.264 e áudio AAC ao vivo por HLS;
+- mosaico demonstrativo;
+- estados `online`, `unstable` e `offline`;
+- gravação contínua 24 horas com retenção móvel de 1 hora;
+- busca de gravações por data/hora;
+- eventos com pré e pós-alarme;
+- clips com estado `pending`, `available` ou `expired`;
+- remoção automática dos metadados de eventos expirados;
+- PostgreSQL, logs, healthcheck e Docker Compose;
+- proxy HTTPS e proteção por usuário/senha para publicação em servidor;
+- testes unitários, testes de contrato e pipeline do GitHub Actions.
 
-As URLs públicas não ficam fixas no código. O backend usa `PUBLIC_RTMP_BASE_URL`, `PUBLIC_HLS_BASE_URL` e `PUBLIC_PLAYBACK_BASE_URL`; por isso o mesmo código funciona localmente, em homologação e em produção.
+## Arquitetura
 
-## Teste sem câmera física
+```text
+Câmera / encoder (H.264 + AAC)
+             |
+             | RTMP + chave individual
+             v
+          MediaMTX --------> HLS ao vivo --------> Frontend
+             |
+             +-------------> segmentos fMP4
+                                     |
+                                     +--> exclusão após 1 hora
 
-Requer FFmpeg instalado no Windows. Depois de cadastrar as câmeras, execute:
+Frontend --------> FastAPI --------> PostgreSQL
+                      |
+                      +--> cadastro, status, histórico e eventos
+```
+
+O frontend nunca acessa PostgreSQL nem a API administrativa do MediaMTX. Ele usa apenas o FastAPI e as URLs completas devolvidas pela API.
+
+## Arquivos importantes para o frontend
+
+1. [`FRONTEND_HANDOFF.md`](FRONTEND_HANDOFF.md) — instruções de implementação, tipos TypeScript e checklist.
+2. [`BACKEND_API.md`](BACKEND_API.md) — contrato de todos os endpoints e exemplos.
+3. `http://localhost:8000/docs` — Swagger executável quando o ambiente está ativo.
+4. `http://localhost:8000/openapi.json` — contrato OpenAPI para gerar tipos automaticamente.
+
+## Executar para desenvolvimento
+
+Pré-requisitos: Docker Desktop ou Docker Engine com Compose.
+
+```bash
+cp .env.example .env
+docker compose up --build -d
+docker compose ps
+```
+
+No Windows PowerShell, copie o arquivo com:
+
+```powershell
+Copy-Item .env.example .env
+docker compose up --build -d
+```
+
+Endereços locais:
+
+| Serviço | Endereço |
+|---|---|
+| demonstração e API | `http://localhost:8000` |
+| Swagger | `http://localhost:8000/docs` |
+| saúde | `http://localhost:8000/health` |
+| ingestão RTMP | `rtmp://localhost:1935/{stream_key}` |
+| HLS | devolvido no campo `hls_url` |
+| playback | devolvido no campo `url` ou `playback_url` |
+
+## Fluxo de teste para 1 a 8 câmeras
+
+1. Inicie os containers.
+2. Abra `/docs` e crie as câmeras com `POST /api/v1/cameras`.
+3. Copie o `rtmp_url` devolvido para cada câmera.
+4. Configure o encoder para **H.264 + AAC**.
+5. Se não houver câmera disponível, execute no Windows:
 
 ```powershell
 .\scripts\test-streams.ps1 -Count 2
 ```
 
-Cada processo publica uma mira de teste diferente com tom de áudio. Aceita de 1 a 8 streams. Para encerrar, finalize os processos `ffmpeg` iniciados pelo teste.
+O script aceita de 1 a 8 streams e gera vídeo e áudio sintéticos com FFmpeg.
 
-## Pré-alarme
+## Comandos de verificação
 
-O MediaMTX grava segmentos de 10 segundos continuamente. Ao receber um evento, a API guarda o instante e calcula uma janela que começa `pre_alarm_seconds` antes e termina `post_alarm_seconds` depois. Exemplo:
-
-```http
-POST /api/v1/cameras/1/events
-Content-Type: application/json
-
-{"kind":"zona-03","note":"Movimento na entrada"}
+```bash
+docker compose logs -f backend mediamtx
+docker compose exec -T backend python -c "import urllib.request; print(urllib.request.urlopen('http://localhost:8000/health').read().decode())"
 ```
 
-O item aparece em Histórico com uma URL de playback que agrega os segmentos da janela. A gravação já existe antes do evento; portanto o pré-alarme não depende de manter vídeo em memória.
+Testes Python fora do container:
 
-## Resgate e retenção
+```bash
+cd backend
+python -m pip install -r requirements.txt ruff
+ruff check app tests
+ruff format --check app tests
+pytest -q
+```
 
-O endpoint `GET /api/v1/cameras/{id}/recordings?start=...&end=...` consulta o playback do MediaMTX. A exclusão é automática após 7 dias (`recordDeleteAfter: 7d`). O campo de retenção por câmera já faz parte do cadastro para evolução; neste MVP a política efetiva é global em 7 dias, conforme o escopo.
+Os testes marcados como `integration` precisam do conjunto Docker ativo:
 
-## Observações de produção
+```bash
+pytest -q -m integration
+```
 
-A configuração pública já inclui TLS/reverse proxy, proteção HTTP e autorização de publicação por chave. Ainda é obrigatório monitorar disco, fazer backups e testar capacidade. Status `online` vem da API de caminhos ativos do MediaMTX; `offline` significa sem publicador. Um canal recém-conectado aparece como `instável` por 20 segundos, uma janela conservadora de estabilização. Para produto comercial com vários operadores, evolua para contas individuais, auditoria e URLs de mídia assinadas.
+## Publicação em servidor
 
-## Portas
+O GitHub compartilha o código, mas não executa RTMP continuamente. Para uma URL pública é necessária uma VM/VPS Linux com IP público e portas `80`, `443` e `1935` liberadas.
 
-| Porta | Uso |
-|---:|---|
-| 8000 | interface e API |
-| 1935 | ingestão RTMP |
-| 8888 | HLS ao vivo |
-| 8889 | WebRTC (habilitado para evolução) |
-| 9996 | playback de gravações |
+Use [`DEPLOY.md`](DEPLOY.md) e `compose.prod.yml`. O conjunto público inclui Caddy com HTTPS automático e autenticação HTTP. O backend, o banco e as APIs internas não são expostos diretamente.
+
+Para uma hora de oito câmeras a 4 Mbit/s, reserve pelo menos 25 GB úteis para gravações e margem. O consumo teórico de vídeo é aproximadamente 14,4 GB por hora; sistema, banco e variação de bitrate exigem espaço adicional.
+
+## Regras técnicas das câmeras
+
+- vídeo: H.264;
+- áudio: AAC;
+- publicação: RTMP na URL exata devolvida pela API;
+- relógio da câmera e do servidor sincronizados por NTP;
+- bitrate recomendado para o beta: ajuste conforme rede e disco;
+- H.265 pode ser gravado, mas não tem reprodução consistente nos navegadores deste MVP.
+
+## Limites conscientes do beta
+
+- um usuário/senha HTTP compartilhado no ambiente público, sem contas individuais;
+- retenção global fixa em 1 hora;
+- sem PTZ, análise de vídeo ou notificações push;
+- sem transcodificação: a câmera deve enviar codecs compatíveis;
+- gravações antigas não são recuperáveis depois da limpeza;
+- dimensionamento e redundância precisam ser revistos antes de uso comercial.
+
+O projeto implementa funcionalidades próprias. Não contém código, marca ou identidade visual proprietária de terceiros.

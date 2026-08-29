@@ -12,6 +12,33 @@ class MediaMTXUnavailable(RuntimeError):
     pass
 
 
+def parse_path_statuses(payload: dict, now: datetime | None = None) -> dict[str, str]:
+    now = now or datetime.now(timezone.utc)
+    statuses: dict[str, str] = {}
+    for item in payload.get("items", []):
+        # MediaMTX 1.20 expõe `online`; `ready` é mantido como fallback
+        # para facilitar upgrades/downgrades sem quebrar o monitoramento.
+        is_online = item.get("online", item.get("ready", False))
+        name = item.get("name")
+        if not is_online or not name:
+            continue
+        status = "online"
+        online_time = item.get("onlineTime") or item.get("readyTime")
+        if online_time:
+            try:
+                connected_at = datetime.fromisoformat(
+                    online_time.replace("Z", "+00:00")
+                )
+                if (
+                    now - connected_at
+                ).total_seconds() < settings.unstable_after_seconds:
+                    status = "unstable"
+            except (TypeError, ValueError):
+                logger.debug("invalid online time for path %s", name)
+        statuses[name] = status
+    return statuses
+
+
 class MediaMTXClient:
     def __init__(self, api_url: str | None = None, playback_url: str | None = None):
         self.api_url = (api_url or settings.mediamtx_api_url).rstrip("/")
@@ -26,26 +53,7 @@ class MediaMTXClient:
             logger.warning("control API unavailable: %s", exc)
             raise MediaMTXUnavailable from exc
 
-        now = datetime.now(timezone.utc)
-        statuses: dict[str, str] = {}
-        for item in response.json().get("items", []):
-            if not item.get("ready"):
-                continue
-            status = "online"
-            ready_time = item.get("readyTime")
-            if ready_time:
-                try:
-                    connected_at = datetime.fromisoformat(
-                        ready_time.replace("Z", "+00:00")
-                    )
-                    if (
-                        now - connected_at
-                    ).total_seconds() < settings.unstable_after_seconds:
-                        status = "unstable"
-                except ValueError:
-                    logger.debug("invalid readyTime for path %s", item.get("name"))
-            statuses[item["name"]] = status
-        return statuses
+        return parse_path_statuses(response.json())
 
     async def list_recordings(
         self, path: str, start: datetime | None, end: datetime | None

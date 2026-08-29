@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
 
 from ..config import settings
@@ -27,7 +28,6 @@ def camera_output(camera: Camera, status: str = "offline") -> CameraOut:
         name=camera.name,
         location=camera.location,
         audio_enabled=camera.audio_enabled,
-        retention_days=camera.retention_days,
         pre_alarm_seconds=camera.pre_alarm_seconds,
         post_alarm_seconds=camera.post_alarm_seconds,
         stream_key=camera.stream_key,
@@ -58,15 +58,31 @@ def recording_output(camera: Camera, row: dict) -> RecordingOut:
 
 
 def event_output(event: Event, camera: Camera) -> EventOut:
+    now = datetime.now(timezone.utc)
+    clip_start = event.clip_start
+    if clip_start.tzinfo is None:
+        clip_start = clip_start.replace(tzinfo=timezone.utc)
+    clip_end = clip_start + timedelta(seconds=event.clip_duration)
+    available_until = clip_start + timedelta(hours=settings.effective_retention_hours)
+    if now < clip_end:
+        clip_status = "pending"
+    elif now >= available_until:
+        clip_status = "expired"
+    else:
+        clip_status = "available"
     return EventOut(
         id=event.id,
         camera_id=event.camera_id,
         kind=event.kind,
         note=event.note,
         happened_at=event.happened_at,
-        clip_start=event.clip_start,
+        clip_start=clip_start,
         clip_duration=event.clip_duration,
-        playback_url=playback_url(
-            camera.stream_key, event.clip_start, event.clip_duration
+        playback_url=(
+            playback_url(camera.stream_key, clip_start, event.clip_duration)
+            if clip_status == "available"
+            else None
         ),
+        clip_status=clip_status,
+        available_until=available_until,
     )

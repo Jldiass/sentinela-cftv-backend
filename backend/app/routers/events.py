@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from ..config import settings
 from ..database import get_db
 from ..models import Camera, Event
 from ..schemas import EventCreate, EventOut
@@ -28,7 +29,14 @@ def create_event(camera_id: int, payload: EventCreate, db: Session = Depends(get
     happened = payload.happened_at or datetime.now(timezone.utc)
     if happened.tzinfo is None:
         happened = happened.replace(tzinfo=timezone.utc)
+    happened = happened.astimezone(timezone.utc)
+    now = datetime.now(timezone.utc)
+    if happened > now + timedelta(minutes=1):
+        raise HTTPException(422, "happened_at não pode estar no futuro")
     start = happened - timedelta(seconds=camera.pre_alarm_seconds)
+    retention_cutoff = now - timedelta(hours=settings.effective_retention_hours)
+    if start < retention_cutoff:
+        raise HTTPException(422, "Evento fora da janela de retenção")
     duration = camera.pre_alarm_seconds + camera.post_alarm_seconds
     event = Event(
         camera_id=camera.id,

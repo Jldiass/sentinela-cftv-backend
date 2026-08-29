@@ -7,9 +7,9 @@ Esta configuração executa o backend, PostgreSQL, MediaMTX e proxy HTTPS em um 
 - VPS Linux com IP público fixo, Docker Engine e Docker Compose;
 - domínio ou subdomínio com registro DNS `A` apontando para o IP da VPS;
 - portas TCP `80`, `443` e `1935` liberadas no firewall;
-- disco dimensionado para sete dias de gravação de até oito câmeras.
+- disco dimensionado para uma hora de gravação de até oito câmeras.
 
-Como referência, oito câmeras a 2 Mbit/s consomem aproximadamente 1,2 TB em sete dias. Reserve margem para banco, sistema e variação de bitrate.
+Como referência, oito câmeras a 4 Mbit/s consomem aproximadamente 14,4 GB por hora. Reserve pelo menos 25 GB para gravações, além do espaço do sistema, banco e imagens Docker.
 
 Não use hospedagem serverless para este serviço. RTMP contínuo, FFmpeg/MediaMTX e gravações exigem um servidor persistente. Para o primeiro ambiente, uma VPS Ubuntu é a opção mais simples.
 
@@ -17,12 +17,13 @@ Não use hospedagem serverless para este serviço. RTMP contínuo, FFmpeg/MediaM
 
 O backend apenas remuxa H.264/AAC para HLS; ele não transcodifica. Para até oito canais, comece com 4 vCPU, 8 GB de RAM, porta de pelo menos 200 Mbit/s e armazenamento útil conforme o bitrate:
 
-| Bitrate por câmera | Sete dias / 8 câmeras | Disco recomendado |
+| Bitrate por câmera | Uma hora / 8 câmeras | Espaço recomendado para gravações |
 |---:|---:|---:|
-| 1 Mbit/s | ~605 GB | 800 GB |
-| 1,5 Mbit/s | ~907 GB | 1,2 TB |
-| 2 Mbit/s | ~1,21 TB | 1,5 TB |
-| 3 Mbit/s | ~1,81 TB | 2,2 TB |
+| 1 Mbit/s | ~3,6 GB | 8 GB |
+| 2 Mbit/s | ~7,2 GB | 15 GB |
+| 4 Mbit/s | ~14,4 GB | 25 GB |
+| 6 Mbit/s | ~21,6 GB | 35 GB |
+| 8 Mbit/s | ~28,8 GB | 45 GB |
 
 Use H.264 + AAC diretamente na câmera. Se houver transcodificação, o dimensionamento de CPU muda bastante.
 
@@ -34,7 +35,7 @@ cd sentinela-cftv-backend
 cp .env.production.example .env.production
 ```
 
-Para o beta gratuito com disco reduzido, use `cp .env.free-beta.example .env.production`. Essa configuração mantém até oito cadastros, mas reduz a retenção efetiva para dez horas. A API devolve `effective_retention_hours` para o frontend exibir o valor verdadeiro.
+Para o beta, use `cp .env.free-beta.example .env.production`. A configuração mantém até oito cadastros e uma janela móvel de uma hora. A API devolve `effective_retention_hours: 1` para o frontend exibir o valor verdadeiro.
 
 Em uma VPS Ubuntu nova, o script abaixo instala Docker, configura o firewall e cria as pastas persistentes:
 
@@ -80,7 +81,7 @@ docker compose --env-file .env.production -f compose.prod.yml logs -f backend me
 docker compose --env-file .env.production -f compose.prod.yml exec -T postgres pg_dump -U cftv cftv > backup-cftv.sql
 ```
 
-Monitore uso de disco. A retenção apaga segmentos com mais de sete dias, mas oito câmeras em bitrate alto ainda exigem bastante armazenamento. Faça backup do PostgreSQL e teste restauração antes do uso operacional.
+Monitore uso de disco. A retenção apaga segmentos com mais de uma hora, mas picos de bitrate, streams interrompidos e arquivos temporários exigem margem. Faça backup do PostgreSQL e teste restauração antes do uso operacional.
 
 ## Limite de segurança do MVP
 

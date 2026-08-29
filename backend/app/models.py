@@ -17,7 +17,10 @@ class Camera(Base):
     location: Mapped[str] = mapped_column(String(160), default="")
     stream_key: Mapped[str] = mapped_column(String(80), unique=True, index=True)
     audio_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
-    retention_days: Mapped[int] = mapped_column(Integer, default=7)
+    # Compatibilidade com bancos criados antes da retenção se tornar global.
+    retention_days_legacy: Mapped[int] = mapped_column(
+        "retention_days", Integer, default=1
+    )
     pre_alarm_seconds: Mapped[int] = mapped_column(Integer, default=30)
     post_alarm_seconds: Mapped[int] = mapped_column(Integer, default=60)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)

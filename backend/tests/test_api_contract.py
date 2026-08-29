@@ -16,8 +16,8 @@ def test_health_contract():
     assert payload["ok"] is True
     assert payload["database"] == "up"
     assert payload["mediamtx"] == "up"
-    assert payload["version"] == "0.2.0"
-    assert payload["effective_retention_hours"] >= 1
+    assert payload["version"] == "0.3.0"
+    assert payload["effective_retention_hours"] == 1
 
 
 def test_camera_crud_and_publish_authorization():
@@ -28,7 +28,6 @@ def test_camera_crud_and_publish_authorization():
             "name": name,
             "location": "teste automatizado",
             "audio_enabled": True,
-            "retention_days": 7,
             "pre_alarm_seconds": 15,
             "post_alarm_seconds": 30,
         },

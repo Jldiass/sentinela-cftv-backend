@@ -1,29 +1,56 @@
+import asyncio
 import logging
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
+from datetime import datetime, timedelta, timezone
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import delete
 
 from .config import settings
-from .database import Base, engine
+from .database import Base, SessionLocal, engine
+from .models import Event
 from .routers import cameras, events, internal, system
 
 logger = logging.getLogger("cftv")
 
 
+async def cleanup_expired_events():
+    while True:
+        cutoff = datetime.now(timezone.utc) - timedelta(
+            hours=settings.effective_retention_hours
+        )
+        with SessionLocal() as db:
+            result = db.execute(delete(Event).where(Event.clip_start < cutoff))
+            db.commit()
+            if result.rowcount:
+                logger.info("removed expired event metadata count=%s", result.rowcount)
+        await asyncio.sleep(60)
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     Base.metadata.create_all(engine)
-    logger.info("database ready; camera_limit=%s", settings.camera_limit)
-    yield
+    logger.info(
+        "database ready; camera_limit=%s retention_hours=%s",
+        settings.camera_limit,
+        settings.effective_retention_hours,
+    )
+    cleanup_task = asyncio.create_task(cleanup_expired_events())
+    try:
+        yield
+    finally:
+        cleanup_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await cleanup_task
 
 
 app = FastAPI(
-    title="Sentinela CFTV API",
+    title="Malupe Cam API",
     description="Backend para ingestão, monitoramento, gravação e eventos CFTV.",
-    version="0.2.0",
+    version=settings.app_version,
     lifespan=lifespan,
 )
 app.add_middleware(
