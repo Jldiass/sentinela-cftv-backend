@@ -1,0 +1,79 @@
+name: sentinela-cftv
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-cftv}
+      POSTGRES_USER: ${POSTGRES_USER:-cftv}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cftv} -d ${POSTGRES_DB:-cftv}"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  mediamtx:
+    image: bluenviron/mediamtx:1.20.1
+    ports:
+      - "1935:1935"
+    volumes:
+      - ./mediamtx/mediamtx.yml:/mediamtx.yml:ro
+      - recordings_data:/recordings
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-cftv}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-cftv}
+      MEDIAMTX_API_URL: http://mediamtx:9997
+      MEDIAMTX_PLAYBACK_URL: http://mediamtx:9996
+      PUBLIC_RTMP_BASE_URL: rtmp://${PUBLIC_DOMAIN}:1935
+      PUBLIC_HLS_BASE_URL: https://${PUBLIC_DOMAIN}/hls
+      PUBLIC_PLAYBACK_BASE_URL: https://${PUBLIC_DOMAIN}/playback
+      CAMERA_LIMIT: ${CAMERA_LIMIT:-8}
+      UNSTABLE_AFTER_SECONDS: ${UNSTABLE_AFTER_SECONDS:-20}
+      API_PREFIX: /api/v1
+      CORS_ORIGINS: ${CORS_ORIGINS:?Defina CORS_ORIGINS}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mediamtx:
+        condition: service_started
+    volumes:
+      - recordings_data:/recordings:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2.10-alpine
+    environment:
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN:?Defina PUBLIC_DOMAIN}
+      CADDY_ADMIN_USER: ${CADDY_ADMIN_USER:?Defina CADDY_ADMIN_USER}
+      CADDY_ADMIN_PASSWORD_HASH: ${CADDY_ADMIN_PASSWORD_HASH:?Defina CADDY_ADMIN_PASSWORD_HASH}
+      CADDY_ACME_EMAIL: ${CADDY_ACME_EMAIL:-}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  recordings_data:
+  caddy_data:
+  caddy_config:

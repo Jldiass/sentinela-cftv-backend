@@ -1,0 +1,59 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-cftv}
+      POSTGRES_USER: ${POSTGRES_USER:-cftv}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cftv-local}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cftv} -d ${POSTGRES_DB:-cftv}"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  mediamtx:
+    image: bluenviron/mediamtx:1.20.1
+    ports:
+      - "1935:1935"
+      - "8888:8888"
+      - "8889:8889"
+      - "9996:9996"
+    volumes:
+      - ./mediamtx/mediamtx.yml:/mediamtx.yml:ro
+      - ./recordings:/recordings
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg://cftv:${POSTGRES_PASSWORD:-cftv-local}@postgres:5432/${POSTGRES_DB:-cftv}
+      MEDIAMTX_API_URL: http://mediamtx:9997
+      MEDIAMTX_PLAYBACK_URL: http://mediamtx:9996
+      PUBLIC_RTMP_BASE_URL: ${PUBLIC_RTMP_BASE_URL:-rtmp://localhost:1935}
+      PUBLIC_HLS_BASE_URL: ${PUBLIC_HLS_BASE_URL:-http://localhost:8888}
+      PUBLIC_PLAYBACK_BASE_URL: ${PUBLIC_PLAYBACK_BASE_URL:-http://localhost:9996}
+      CAMERA_LIMIT: ${CAMERA_LIMIT:-8}
+      UNSTABLE_AFTER_SECONDS: ${UNSTABLE_AFTER_SECONDS:-20}
+      API_PREFIX: /api/v1
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:5173,http://localhost:8000}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mediamtx:
+        condition: service_started
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./recordings:/recordings:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

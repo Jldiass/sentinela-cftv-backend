@@ -1,0 +1,23 @@
+{$PUBLIC_DOMAIN} {
+    encode zstd gzip
+
+    basic_auth {
+        {$CADDY_ADMIN_USER} {$CADDY_ADMIN_PASSWORD_HASH}
+    }
+
+    handle /internal/* {
+        respond 404
+    }
+
+    handle_path /hls/* {
+        reverse_proxy mediamtx:8888
+    }
+
+    handle_path /playback/* {
+        reverse_proxy mediamtx:9996
+    }
+
+    handle {
+        reverse_proxy backend:8000
+    }
+}

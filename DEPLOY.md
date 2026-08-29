@@ -1,0 +1,67 @@
+# Publicação em servidor
+
+Esta configuração executa o backend, PostgreSQL, MediaMTX e proxy HTTPS em um servidor Linux público. O vídeo gravado e o banco ficam em volumes persistentes do Docker. O Caddy emite e renova o certificado TLS automaticamente.
+
+## Infraestrutura necessária
+
+- VPS Linux com IP público fixo, Docker Engine e Docker Compose;
+- domínio ou subdomínio com registro DNS `A` apontando para o IP da VPS;
+- portas TCP `80`, `443` e `1935` liberadas no firewall;
+- disco dimensionado para sete dias de gravação de até oito câmeras.
+
+Como referência, oito câmeras a 2 Mbit/s consomem aproximadamente 1,2 TB em sete dias. Reserve margem para banco, sistema e variação de bitrate.
+
+Não use hospedagem serverless para este serviço. RTMP contínuo, FFmpeg/MediaMTX e gravações exigem um servidor persistente. Para o primeiro ambiente, uma VPS Ubuntu é a opção mais simples.
+
+## Primeira publicação
+
+```bash
+git clone URL_DO_REPOSITORIO
+cd sentinela-cftv-backend
+cp .env.production.example .env.production
+```
+
+Gere o hash da senha que protegerá painel, API, HLS e playback:
+
+```bash
+docker run --rm caddy:2.10-alpine caddy hash-password --plaintext 'SENHA_FORTE'
+```
+
+Edite `.env.production`. Informe domínio, e-mail, senha alfanumérica forte do PostgreSQL, usuário e o hash gerado. Mantenha o hash entre aspas simples. Depois execute:
+
+```bash
+docker compose --env-file .env.production -f compose.prod.yml up -d --build
+docker compose --env-file .env.production -f compose.prod.yml ps
+```
+
+Acesse `https://SEU_DOMINIO/docs`. O navegador solicitará o usuário e a senha definidos no Caddy.
+
+## Endereços públicos
+
+- API: `https://SEU_DOMINIO/api/v1`
+- Swagger: `https://SEU_DOMINIO/docs`
+- saúde: `https://SEU_DOMINIO/health`
+- RTMP: `rtmp://SEU_DOMINIO:1935/{stream_key}`
+- HLS e playback: URLs completas devolvidas pela API
+
+O frontend deve definir `VITE_API_URL=https://SEU_DOMINIO/api/v1`. Se for hospedado em outro domínio, inclua esse endereço em `CORS_ORIGINS` e mantenha o acesso protegido. Para a primeira entrega, servir frontend e backend no mesmo domínio simplifica autenticação e reprodução HLS.
+
+## Atualização
+
+```bash
+git pull --ff-only
+docker compose --env-file .env.production -f compose.prod.yml up -d --build
+```
+
+## Backup e operação
+
+```bash
+docker compose --env-file .env.production -f compose.prod.yml logs -f backend mediamtx caddy
+docker compose --env-file .env.production -f compose.prod.yml exec -T postgres pg_dump -U cftv cftv > backup-cftv.sql
+```
+
+Monitore uso de disco. A retenção apaga segmentos com mais de sete dias, mas oito câmeras em bitrate alto ainda exigem bastante armazenamento. Faça backup do PostgreSQL e teste restauração antes do uso operacional.
+
+## Limite de segurança do MVP
+
+O HTTPS e a autenticação HTTP impedem acesso anônimo ao painel e às mídias. A chave RTMP individual autoriza publicação. Para produto comercial com vários usuários, a evolução correta é implementar contas, perfis, auditoria, URLs de mídia assinadas e armazenamento externo/replicado.

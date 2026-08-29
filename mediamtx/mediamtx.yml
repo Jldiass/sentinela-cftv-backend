@@ -1,0 +1,38 @@
+logLevel: info
+logDestinations: [stdout]
+authMethod: http
+authHTTPAddress: http://backend:8000/internal/mediamtx/auth
+authHTTPExclude:
+  - action: read
+  - action: playback
+  - action: api
+api: yes
+apiAddress: :9997
+playback: yes
+playbackAddress: :9996
+playbackAllowOrigins: ['*']
+rtmp: yes
+rtmpAddress: :1935
+hls: yes
+hlsAddress: :8888
+hlsAllowOrigins: ['*']
+hlsAlwaysRemux: yes
+hlsVariant: lowLatency
+hlsSegmentCount: 7
+hlsSegmentDuration: 1s
+hlsPartDuration: 200ms
+webrtc: yes
+webrtcAddress: :8889
+webrtcAllowOrigins: ['*']
+
+pathDefaults:
+  source: publisher
+  record: yes
+  recordPath: /recordings/%path/%Y-%m-%d_%H-%M-%S-%f
+  recordFormat: fmp4
+  recordPartDuration: 1s
+  recordSegmentDuration: 10s
+  recordDeleteAfter: 7d
+
+paths:
+  all_others:

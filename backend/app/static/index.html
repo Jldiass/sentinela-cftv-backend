@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Sentinela Local</title>
+  <link rel="stylesheet" href="/assets/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.6.13"></script>
+</head>
+<body>
+  <header><div><span class="eyebrow">MONITORAMENTO LOCAL</span><h1>Sentinela</h1></div><div id="summary" class="summary">carregando…</div></header>
+  <nav><button class="tab active" data-page="mosaic">Mosaico</button><button class="tab" data-page="cameras">Câmeras</button><button class="tab" data-page="history">Histórico</button></nav>
+  <main>
+    <section id="mosaic" class="page active"><div class="section-title"><div><h2>Visão ao vivo</h2><p>Até 8 canais RTMP com áudio</p></div><button onclick="loadAll()">Atualizar</button></div><div id="grid" class="grid"></div></section>
+    <section id="cameras" class="page"><div class="split"><form id="cameraForm" class="panel"><h2>Nova câmera</h2><label>Nome<input name="name" required minlength="2" placeholder="Entrada principal"></label><label>Local<input name="location" placeholder="Recepção"></label><div class="two"><label>Retenção (dias)<input name="retention_days" type="number" min="1" max="30" value="7"></label><label>Pré-alarme (s)<input name="pre_alarm_seconds" type="number" min="0" max="300" value="30"></label></div><label>Pós-alarme (s)<input name="post_alarm_seconds" type="number" min="1" max="600" value="60"></label><label class="check"><input name="audio_enabled" type="checkbox" checked> Áudio habilitado</label><button type="submit">Cadastrar câmera</button><p id="formMsg"></p></form><div class="panel grow"><h2>Câmeras cadastradas</h2><div id="cameraList"></div></div></div></section>
+    <section id="history" class="page"><div class="panel"><h2>Resgate por data e hora</h2><div class="filters"><select id="historyCamera"></select><input id="historyStart" type="datetime-local"><input id="historyEnd" type="datetime-local"><button onclick="findRecordings()">Buscar</button></div><div id="recordings"></div></div><div class="panel"><h2>Eventos / pré-alarme</h2><p>O clipe começa antes do disparo e termina após o tempo configurado.</p><div id="events"></div></div></section>
+  </main>
+  <script src="/assets/app.js?v=2"></script>
+</body></html>
