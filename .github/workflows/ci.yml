@@ -24,6 +24,7 @@ jobs:
       - name: Format check
         run: ruff format --check app tests
       - name: Unit tests
-        run: pytest -q
+        # `python -m` mantém o diretório backend no import path em Linux e Windows.
+        run: python -m pytest -q
       - name: Build backend image
         run: docker build -t sentinela-cftv-backend:test .
