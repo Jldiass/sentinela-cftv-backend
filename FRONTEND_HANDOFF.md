@@ -59,6 +59,7 @@ export interface Camera {
   enabled: boolean;
   created_at: string;
   status: CameraStatus;
+  rtmp_server_url: string;
   rtmp_url: string;
   hls_url: string;
   effective_retention_hours: number;
@@ -188,7 +189,14 @@ Crie com `POST /cameras`. Exemplo:
 }
 ```
 
-Após criar, exiba `rtmp_url` com botão de copiar. Não aceite `stream_key` digitada pelo operador; ela é gerada pelo backend.
+Após criar, mostre as duas formas de configuração, com a primeira em destaque:
+
+- **Mibo Smart/Mibo Cam:** botão “Copiar URL para Mibo” que copia `rtmp_url`;
+- **campos separados:** botão para copiar `rtmp_server_url` e outro para copiar
+  `stream_key`.
+
+Não aceite `stream_key` digitada pelo operador; ela é gerada pelo backend. Não
+monte a URL no frontend e não coloque `rtmp_url` no campo visual chamado “Chave”.
 
 Não envie `retention_days` ou `retention_hours` no cadastro. A política é global e devolvida em `effective_retention_hours`.
 
@@ -265,7 +273,7 @@ Formato comum:
 
 - [ ] `GET /health` mostra API e mídia disponíveis.
 - [ ] Nenhum componente contém URL fixa de HLS ou playback.
-- [ ] Cadastro exibe e copia a URL RTMP.
+- [ ] Cadastro exibe URL completa, servidor e chave RTMP sem ambiguidade.
 - [ ] Mosaico reproduz H.264 + AAC.
 - [ ] Áudio só é habilitado após ação do usuário.
 - [ ] Status atualiza sem desmontar players desnecessariamente.

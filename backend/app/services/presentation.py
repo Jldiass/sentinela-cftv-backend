@@ -7,13 +7,12 @@ from ..schemas import CameraOut, EventOut, RecordingOut, StreamCredentials
 
 
 def stream_credentials(camera: Camera) -> StreamCredentials:
+    rtmp_server_url = settings.clean_base_url(settings.public_rtmp_base_url)
     return StreamCredentials(
         camera_id=camera.id,
         stream_key=camera.stream_key,
-        rtmp_url=(
-            f"{settings.clean_base_url(settings.public_rtmp_base_url)}/"
-            f"{camera.stream_key}"
-        ),
+        rtmp_server_url=rtmp_server_url,
+        rtmp_url=f"{rtmp_server_url}/{camera.stream_key}",
         hls_url=(
             f"{settings.clean_base_url(settings.public_hls_base_url)}/"
             f"{camera.stream_key}/index.m3u8"
@@ -34,6 +33,7 @@ def camera_output(camera: Camera, status: str = "offline") -> CameraOut:
         enabled=camera.enabled,
         created_at=camera.created_at,
         status=status,
+        rtmp_server_url=credentials.rtmp_server_url,
         rtmp_url=credentials.rtmp_url,
         hls_url=credentials.hls_url,
         effective_retention_hours=settings.effective_retention_hours,

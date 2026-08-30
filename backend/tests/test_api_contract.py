@@ -15,7 +15,7 @@ def test_health_contract():
     assert payload["ok"] is True
     assert payload["database"] == "up"
     assert payload["mediamtx"] == "up"
-    assert payload["version"] == "0.3.0"
+    assert payload["version"] == "0.3.1"
     assert payload["effective_retention_hours"] == 1
 
 
@@ -38,6 +38,10 @@ def test_camera_crud_and_publish_authorization():
     try:
         assert camera["stream_key"].startswith("cam-")
         assert camera["status"] == "offline"
+        assert camera["rtmp_url"] == (
+            f"{camera['rtmp_server_url']}/{camera['stream_key']}"
+        )
+        assert camera["rtmp_url"].count(camera["stream_key"]) == 1
 
         updated = httpx.patch(
             f"{BASE_URL}/api/v1/cameras/{camera_id}",

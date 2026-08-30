@@ -6,6 +6,8 @@ __pycache__/
 .ruff_cache/
 *.py[cod]
 *.log
+auto.crt
+auto.key
 .DS_Store
 Thumbs.db
 

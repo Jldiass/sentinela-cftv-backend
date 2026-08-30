@@ -1,6 +1,6 @@
 # Contrato da API — Malupe Cam Beta
 
-Versão: `0.3.0`
+Versão: `0.3.1`
 Base local: `http://localhost:8000`
 Prefixo: `/api/v1`
 OpenAPI: `/openapi.json`
@@ -18,7 +18,7 @@ JSON usa nomes em `snake_case`. Datas são RFC3339/ISO 8601 e devem incluir fuso
   "database": "up",
   "mediamtx": "up",
   "active_streams": 2,
-  "version": "0.3.0",
+  "version": "0.3.1",
   "effective_retention_hours": 1
 }
 ```
@@ -46,6 +46,7 @@ Retorna apenas câmeras habilitadas. Use `?include_disabled=true` na administra�
     "enabled": true,
     "created_at": "2026-08-29T12:00:00Z",
     "status": "online",
+    "rtmp_server_url": "rtmp://host:1935",
     "rtmp_url": "rtmp://host:1935/cam-chave-aleatoria",
     "hls_url": "https://host/hls/cam-chave-aleatoria/index.m3u8",
     "effective_retention_hours": 1
@@ -69,7 +70,7 @@ Retorna apenas câmeras habilitadas. Use `?include_disabled=true` na administra�
 }
 ```
 
-Resposta: `201` com a câmera completa. O backend gera `stream_key`, `rtmp_url` e `hls_url`. Há no máximo oito cadastros.
+Resposta: `201` com a câmera completa. O backend gera `rtmp_server_url`, `stream_key`, `rtmp_url` e `hls_url`. Há no máximo oito cadastros.
 
 Campos desconhecidos retornam `422`. Não envie retenção no cadastro: ela é global em uma hora.
 
@@ -108,10 +109,21 @@ Resposta `204`. Se houver publicação ativa, retorna `409`; desconecte a câmer
 {
   "camera_id": 1,
   "stream_key": "cam-chave-aleatoria",
+  "rtmp_server_url": "rtmp://host:1935",
   "rtmp_url": "rtmp://host:1935/cam-chave-aleatoria",
   "hls_url": "https://host/hls/cam-chave-aleatoria/index.m3u8"
 }
 ```
+
+Há dois formatos de configuração possíveis:
+
+- Mibo Smart/Mibo Cam: apague o conteúdo anterior do campo `URL RTMP` e cole
+  somente `rtmp_url`, uma única vez;
+- equipamento com campos separados: servidor = `rtmp_server_url` e chave =
+  `stream_key`.
+
+Nunca repita a URL ou a chave. A API garante que a URL completa é
+`rtmp_server_url + "/" + stream_key` e inclui a chave exatamente uma vez.
 
 ### Trocar chave RTMP
 

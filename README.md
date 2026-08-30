@@ -2,7 +2,7 @@
 
 Backend próprio para monitoramento de até **8 câmeras RTMP**, com áudio, HLS ao vivo, gravação contínua, histórico móvel de **1 hora**, status de conexão e eventos com pré/pós-alarme.
 
-Versão atual da API: **0.3.0**.
+Versão atual da API: **0.3.1**.
 
 ## Regra do histórico de 1 hora
 
@@ -97,9 +97,13 @@ Endereços locais:
 
 1. Inicie os containers.
 2. Abra `/docs` e crie as câmeras com `POST /api/v1/cameras`.
-3. Copie o `rtmp_url` devolvido para cada câmera.
-4. Configure o encoder para **H.264 + AAC**.
-5. Se não houver câmera disponível, execute no Windows:
+3. Abra as credenciais RTMP devolvidas pela API.
+4. No **Mibo Smart/Mibo Cam**, apague o conteúdo anterior do campo `URL RTMP` e
+   cole somente `rtmp_url`, uma única vez.
+5. Em outros equipamentos com campos separados, use `rtmp_server_url` no campo servidor e
+   `stream_key` no campo chave.
+6. Configure o encoder para **H.264 + AAC**.
+7. Se não houver câmera disponível, execute no Windows:
 
 ```powershell
 .\scripts\test-streams.ps1 -Count 2
@@ -142,7 +146,9 @@ Para uma hora de oito câmeras a 4 Mbit/s, reserve pelo menos 25 GB úteis para 
 
 - vídeo: H.264;
 - áudio: AAC;
-- publicação: RTMP na URL exata devolvida pela API;
+- Mibo Smart/Mibo Cam: cole somente a `rtmp_url` completa no campo `URL RTMP`;
+- publicação com campos separados: use `rtmp_server_url` como servidor e
+  `stream_key` como chave; nunca repita a URL completa no campo da chave;
 - relógio da câmera e do servidor sincronizados por NTP;
 - bitrate recomendado para o beta: ajuste conforme rede e disco;
 - H.265 pode ser gravado, mas não tem reprodução consistente nos navegadores deste MVP.
