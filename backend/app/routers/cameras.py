@@ -18,7 +18,12 @@ from ..schemas import (
     StreamCredentials,
 )
 from ..services.mediamtx import MediaMTXUnavailable, mediamtx
-from ..services.presentation import camera_output, recording_output, stream_credentials
+from ..services.presentation import (
+    camera_output,
+    recording_output,
+    stream_credentials,
+    stream_path,
+)
 
 router = APIRouter(prefix="/cameras", tags=["cameras"])
 logger = logging.getLogger("cftv.cameras")
@@ -47,7 +52,7 @@ async def list_cameras(db: DbSession, include_disabled: bool = Query(False)):
     rows = db.scalars(stmt).all()
     stream_statuses = await statuses_or_empty()
     return [
-        camera_output(row, stream_statuses.get(row.stream_key, "offline"))
+        camera_output(row, stream_statuses.get(stream_path(row.stream_key), "offline"))
         for row in rows
     ]
 
@@ -71,7 +76,9 @@ def create_camera(payload: CameraCreate, db: DbSession):
 async def get_camera(camera_id: int, db: DbSession):
     camera = camera_or_404(camera_id, db)
     stream_statuses = await statuses_or_empty()
-    return camera_output(camera, stream_statuses.get(camera.stream_key, "offline"))
+    return camera_output(
+        camera, stream_statuses.get(stream_path(camera.stream_key), "offline")
+    )
 
 
 @router.patch("/{camera_id}", response_model=CameraOut)
@@ -85,14 +92,16 @@ async def update_camera(camera_id: int, payload: CameraUpdate, db: DbSession):
     logger.info(
         "updated camera_id=%s fields=%s", camera.id, sorted(payload.model_fields_set)
     )
-    return camera_output(camera, stream_statuses.get(camera.stream_key, "offline"))
+    return camera_output(
+        camera, stream_statuses.get(stream_path(camera.stream_key), "offline")
+    )
 
 
 @router.delete("/{camera_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_camera(camera_id: int, db: DbSession):
     camera = camera_or_404(camera_id, db)
     stream_statuses = await statuses_or_empty()
-    if camera.stream_key in stream_statuses:
+    if stream_path(camera.stream_key) in stream_statuses:
         raise HTTPException(409, "Desconecte a câmera antes de excluir o cadastro")
     db.delete(camera)
     db.commit()
@@ -114,7 +123,7 @@ async def rotate_stream_key(camera_id: int, db: DbSession):
         raise HTTPException(
             503, "Não foi possível confirmar se o canal está offline"
         ) from exc
-    if camera.stream_key in stream_statuses:
+    if stream_path(camera.stream_key) in stream_statuses:
         raise HTTPException(409, "Desconecte a câmera antes de trocar a chave RTMP")
     camera.stream_key = f"cam-{secrets.token_urlsafe(18).lower()}"
     db.commit()
@@ -134,7 +143,9 @@ async def list_recordings(
     if start and end and start >= end:
         raise HTTPException(422, "start deve ser anterior a end")
     try:
-        rows = await mediamtx.list_recordings(camera.stream_key, start, end)
+        rows = await mediamtx.list_recordings(
+            stream_path(camera.stream_key), start, end
+        )
     except MediaMTXUnavailable as exc:
         raise HTTPException(503, "Playback temporariamente indisponível") from exc
     return [recording_output(camera, row) for row in rows]

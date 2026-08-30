@@ -1,6 +1,6 @@
 # Contrato da API — Malupe Cam Beta
 
-Versão: `0.3.1`
+Versão: `0.3.2`
 Base local: `http://localhost:8000`
 Prefixo: `/api/v1`
 OpenAPI: `/openapi.json`
@@ -18,7 +18,7 @@ JSON usa nomes em `snake_case`. Datas são RFC3339/ISO 8601 e devem incluir fuso
   "database": "up",
   "mediamtx": "up",
   "active_streams": 2,
-  "version": "0.3.1",
+  "version": "0.3.2",
   "effective_retention_hours": 1
 }
 ```
@@ -46,9 +46,10 @@ Retorna apenas câmeras habilitadas. Use `?include_disabled=true` na administra�
     "enabled": true,
     "created_at": "2026-08-29T12:00:00Z",
     "status": "online",
-    "rtmp_server_url": "rtmp://host:1935",
-    "rtmp_url": "rtmp://host:1935/cam-chave-aleatoria",
-    "hls_url": "https://host/hls/cam-chave-aleatoria/index.m3u8",
+    "stream_path": "live/cam-chave-aleatoria",
+    "rtmp_server_url": "rtmp://host:1935/live",
+    "rtmp_url": "rtmp://host:1935/live/cam-chave-aleatoria",
+    "hls_url": "https://host/hls/live/cam-chave-aleatoria/index.m3u8",
     "effective_retention_hours": 1
   }
 ]
@@ -109,9 +110,10 @@ Resposta `204`. Se houver publicação ativa, retorna `409`; desconecte a câmer
 {
   "camera_id": 1,
   "stream_key": "cam-chave-aleatoria",
-  "rtmp_server_url": "rtmp://host:1935",
-  "rtmp_url": "rtmp://host:1935/cam-chave-aleatoria",
-  "hls_url": "https://host/hls/cam-chave-aleatoria/index.m3u8"
+  "stream_path": "live/cam-chave-aleatoria",
+  "rtmp_server_url": "rtmp://host:1935/live",
+  "rtmp_url": "rtmp://host:1935/live/cam-chave-aleatoria",
+  "hls_url": "https://host/hls/live/cam-chave-aleatoria/index.m3u8"
 }
 ```
 
@@ -124,6 +126,8 @@ Há dois formatos de configuração possíveis:
 
 Nunca repita a URL ou a chave. A API garante que a URL completa é
 `rtmp_server_url + "/" + stream_key` e inclui a chave exatamente uma vez.
+O segmento `live` é a aplicação RTMP; `stream_path` é o caminho interno usado
+por status, HLS, gravação e playback.
 
 ### Trocar chave RTMP
 

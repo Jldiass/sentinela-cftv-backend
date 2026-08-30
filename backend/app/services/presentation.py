@@ -6,16 +6,32 @@ from ..models import Camera, Event
 from ..schemas import CameraOut, EventOut, RecordingOut, StreamCredentials
 
 
+def stream_path(stream_key: str) -> str:
+    return f"{settings.rtmp_app_name}/{stream_key}"
+
+
+def stream_key_from_path(path: str) -> str | None:
+    prefix = f"{settings.rtmp_app_name}/"
+    if not path.startswith(prefix):
+        return None
+    stream_key = path.removeprefix(prefix)
+    return stream_key if stream_key and "/" not in stream_key else None
+
+
 def stream_credentials(camera: Camera) -> StreamCredentials:
-    rtmp_server_url = settings.clean_base_url(settings.public_rtmp_base_url)
+    path = stream_path(camera.stream_key)
+    rtmp_server_url = (
+        f"{settings.clean_base_url(settings.public_rtmp_base_url)}/"
+        f"{settings.rtmp_app_name}"
+    )
     return StreamCredentials(
         camera_id=camera.id,
         stream_key=camera.stream_key,
+        stream_path=path,
         rtmp_server_url=rtmp_server_url,
         rtmp_url=f"{rtmp_server_url}/{camera.stream_key}",
         hls_url=(
-            f"{settings.clean_base_url(settings.public_hls_base_url)}/"
-            f"{camera.stream_key}/index.m3u8"
+            f"{settings.clean_base_url(settings.public_hls_base_url)}/{path}/index.m3u8"
         ),
     )
 
@@ -33,6 +49,7 @@ def camera_output(camera: Camera, status: str = "offline") -> CameraOut:
         enabled=camera.enabled,
         created_at=camera.created_at,
         status=status,
+        stream_path=credentials.stream_path,
         rtmp_server_url=credentials.rtmp_server_url,
         rtmp_url=credentials.rtmp_url,
         hls_url=credentials.hls_url,
@@ -53,7 +70,7 @@ def recording_output(camera: Camera, row: dict) -> RecordingOut:
     return RecordingOut(
         start=row["start"],
         duration=row["duration"],
-        url=playback_url(camera.stream_key, row["start"], row["duration"]),
+        url=playback_url(stream_path(camera.stream_key), row["start"], row["duration"]),
     )
 
 
@@ -79,7 +96,9 @@ def event_output(event: Event, camera: Camera) -> EventOut:
         clip_start=clip_start,
         clip_duration=event.clip_duration,
         playback_url=(
-            playback_url(camera.stream_key, clip_start, event.clip_duration)
+            playback_url(
+                stream_path(camera.stream_key), clip_start, event.clip_duration
+            )
             if clip_status == "available"
             else None
         ),

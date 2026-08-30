@@ -5,11 +5,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    app_version: str = "0.3.1"
+    app_version: str = "0.3.2"
     database_url: str = "postgresql+psycopg://cftv:cftv-local@postgres:5432/cftv"
     mediamtx_api_url: str = "http://mediamtx:9997"
     mediamtx_playback_url: str = "http://mediamtx:9996"
     public_rtmp_base_url: str = "rtmp://localhost:1935"
+    rtmp_app_name: str = "live"
     public_hls_base_url: str = "http://localhost:8888"
     public_playback_base_url: str = "http://localhost:9996"
     record_delete_after: str = "1h"

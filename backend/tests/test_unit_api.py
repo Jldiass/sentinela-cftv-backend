@@ -50,7 +50,8 @@ def test_camera_event_and_recording_flow(monkeypatch):
         camera_id = camera["id"]
         original_key = camera["stream_key"]
         assert camera["effective_retention_hours"] == 1
-        assert camera["rtmp_server_url"] == "rtmp://localhost:1935"
+        assert camera["stream_path"] == f"live/{original_key}"
+        assert camera["rtmp_server_url"] == "rtmp://localhost:1935/live"
         assert camera["rtmp_url"] == f"{camera['rtmp_server_url']}/{original_key}"
 
         listed = client.get("/api/v1/cameras")
@@ -66,13 +67,15 @@ def test_camera_event_and_recording_flow(monkeypatch):
         credentials = client.get(f"/api/v1/cameras/{camera_id}/stream")
         assert credentials.status_code == 200
         stream = credentials.json()
-        assert stream["rtmp_server_url"] == "rtmp://localhost:1935"
+        assert stream["stream_path"] == f"live/{original_key}"
+        assert stream["rtmp_server_url"] == "rtmp://localhost:1935/live"
         assert stream["stream_key"] == original_key
         assert stream["rtmp_url"] == f"{stream['rtmp_server_url']}/{original_key}"
         assert stream["rtmp_url"].count(original_key) == 1
 
         allowed = client.post(
-            "/internal/mediamtx/auth", json={"action": "publish", "path": original_key}
+            "/internal/mediamtx/auth",
+            json={"action": "publish", "path": f"live/{original_key}"},
         )
         assert allowed.status_code == 200
         denied = client.post(
@@ -250,6 +253,7 @@ def test_openapi_contract_exposes_global_retention_and_clip_state():
     assert "retention_days" not in camera_create
     assert "retention_hours" not in camera_create
     assert "effective_retention_hours" in camera_out
+    assert "stream_path" in camera_out
     assert "rtmp_server_url" in camera_out
     assert "clip_status" in event_out
     assert "available_until" in event_out

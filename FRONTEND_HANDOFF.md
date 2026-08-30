@@ -56,6 +56,7 @@ export interface Camera {
   pre_alarm_seconds: number;
   post_alarm_seconds: number;
   stream_key: string;
+  stream_path: string;
   enabled: boolean;
   created_at: string;
   status: CameraStatus;
@@ -197,6 +198,7 @@ Após criar, mostre as duas formas de configuração, com a primeira em destaque
 
 Não aceite `stream_key` digitada pelo operador; ela é gerada pelo backend. Não
 monte a URL no frontend e não coloque `rtmp_url` no campo visual chamado “Chave”.
+O frontend também não deve remover o segmento `/live/` da URL recebida.
 
 Não envie `retention_days` ou `retention_hours` no cadastro. A política é global e devolvida em `effective_retention_hours`.
 

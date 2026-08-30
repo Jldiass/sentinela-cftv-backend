@@ -2,7 +2,7 @@
 
 Backend próprio para monitoramento de até **8 câmeras RTMP**, com áudio, HLS ao vivo, gravação contínua, histórico móvel de **1 hora**, status de conexão e eventos com pré/pós-alarme.
 
-Versão atual da API: **0.3.1**.
+Versão atual da API: **0.3.2**.
 
 ## Regra do histórico de 1 hora
 
@@ -89,7 +89,7 @@ Endereços locais:
 | demonstração e API | `http://localhost:8000` |
 | Swagger | `http://localhost:8000/docs` |
 | saúde | `http://localhost:8000/health` |
-| ingestão RTMP | `rtmp://localhost:1935/{stream_key}` |
+| ingestão RTMP | `rtmp://localhost:1935/live/{stream_key}` |
 | HLS | devolvido no campo `hls_url` |
 | playback | devolvido no campo `url` ou `playback_url` |
 
@@ -147,6 +147,8 @@ Para uma hora de oito câmeras a 4 Mbit/s, reserve pelo menos 25 GB úteis para 
 - vídeo: H.264;
 - áudio: AAC;
 - Mibo Smart/Mibo Cam: cole somente a `rtmp_url` completa no campo `URL RTMP`;
+- a URL usa o formato `rtmp://servidor:1935/live/chave`, necessário para separar
+  a aplicação RTMP (`live`) da chave da câmera;
 - publicação com campos separados: use `rtmp_server_url` como servidor e
   `stream_key` como chave; nunca repita a URL completa no campo da chave;
 - relógio da câmera e do servidor sincronizados por NTP;

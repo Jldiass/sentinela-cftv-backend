@@ -34,6 +34,7 @@ class CameraOut(CameraBase):
     enabled: bool
     created_at: datetime
     status: Literal["online", "offline", "unstable"] = "offline"
+    stream_path: str = ""
     rtmp_server_url: str = ""
     rtmp_url: str = ""
     hls_url: str = ""
@@ -43,6 +44,7 @@ class CameraOut(CameraBase):
 class StreamCredentials(BaseModel):
     camera_id: int
     stream_key: str
+    stream_path: str
     rtmp_server_url: str
     rtmp_url: str
     hls_url: str

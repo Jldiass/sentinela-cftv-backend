@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..models import Camera
+from ..services.presentation import stream_key_from_path
 
 router = APIRouter(prefix="/internal", include_in_schema=False)
 DbSession = Annotated[Session, Depends(get_db)]
@@ -15,10 +16,15 @@ DbSession = Annotated[Session, Depends(get_db)]
 def mediamtx_auth(payload: dict, db: DbSession):
     if payload.get("action") != "publish":
         return Response(status_code=status.HTTP_200_OK)
-    camera = db.scalar(
-        select(Camera).where(
-            Camera.stream_key == payload.get("path", ""), Camera.enabled.is_(True)
+    stream_key = stream_key_from_path(str(payload.get("path", "")))
+    camera = (
+        db.scalar(
+            select(Camera).where(
+                Camera.stream_key == stream_key, Camera.enabled.is_(True)
+            )
         )
+        if stream_key
+        else None
     )
     return Response(
         status_code=status.HTTP_200_OK if camera else status.HTTP_401_UNAUTHORIZED

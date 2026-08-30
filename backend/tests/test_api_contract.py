@@ -15,7 +15,7 @@ def test_health_contract():
     assert payload["ok"] is True
     assert payload["database"] == "up"
     assert payload["mediamtx"] == "up"
-    assert payload["version"] == "0.3.1"
+    assert payload["version"] == "0.3.2"
     assert payload["effective_retention_hours"] == 1
 
 
@@ -38,6 +38,7 @@ def test_camera_crud_and_publish_authorization():
     try:
         assert camera["stream_key"].startswith("cam-")
         assert camera["status"] == "offline"
+        assert camera["stream_path"] == f"live/{camera['stream_key']}"
         assert camera["rtmp_url"] == (
             f"{camera['rtmp_server_url']}/{camera['stream_key']}"
         )
@@ -53,7 +54,7 @@ def test_camera_crud_and_publish_authorization():
 
         denied = httpx.post(
             f"{BASE_URL}/internal/mediamtx/auth",
-            json={"action": "publish", "path": camera["stream_key"]},
+            json={"action": "publish", "path": camera["stream_path"]},
             timeout=5,
         )
         assert denied.status_code == 401
@@ -64,7 +65,7 @@ def test_camera_crud_and_publish_authorization():
         assert enabled.status_code == 200
         allowed = httpx.post(
             f"{BASE_URL}/internal/mediamtx/auth",
-            json={"action": "publish", "path": camera["stream_key"]},
+            json={"action": "publish", "path": camera["stream_path"]},
             timeout=5,
         )
         assert allowed.status_code == 200
