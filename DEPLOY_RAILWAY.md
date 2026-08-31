@@ -26,11 +26,20 @@ Configure no serviço:
 ```env
 BASIC_AUTH_USER=gestor
 BASIC_AUTH_PASSWORD=troque-por-uma-senha-forte
+AUTH_JWT_SECRET=gere-uma-chave-aleatoria-com-pelo-menos-32-caracteres
+AUTH_COOKIE_SECURE=true
+AUTH_COOKIE_SAMESITE=strict
+AUTH_DEBUG_RETURN_RESET_TOKEN=false
+PASSWORD_RESET_FRONTEND_URL=https://SEU-DOMINIO/reset-password
 PUBLIC_HLS_BASE_URL=/hls
 PUBLIC_PLAYBACK_BASE_URL=/playback
 RECORD_DELETE_AFTER=1h
 CAMERA_LIMIT=8
 ```
+
+Para ativar e-mail de recuperação de senha, configure também `SMTP_HOST`,
+`SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD` e `SMTP_FROM`. Não habilite
+`AUTH_DEBUG_RETURN_RESET_TOKEN` em ambiente público.
 
 Depois de gerar o TCP Proxy, o Railway fornece um endereço semelhante a
 `shuttle.proxy.rlwy.net:15140`. Acrescente:

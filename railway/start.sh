@@ -3,6 +3,7 @@ set -euo pipefail
 
 : "${BASIC_AUTH_USER:?Defina BASIC_AUTH_USER no Railway}"
 : "${BASIC_AUTH_PASSWORD:?Defina BASIC_AUTH_PASSWORD no Railway}"
+: "${AUTH_JWT_SECRET:?Defina AUTH_JWT_SECRET no Railway}"
 
 export DATABASE_URL="${DATABASE_URL:-sqlite+pysqlite:////data/malupe-cam.db}"
 export PUBLIC_RTMP_BASE_URL="${PUBLIC_RTMP_BASE_URL:-rtmp://localhost:1935}"

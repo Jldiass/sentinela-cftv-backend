@@ -11,8 +11,8 @@ from sqlalchemy import delete
 
 from .config import settings
 from .database import Base, SessionLocal, engine
-from .models import Event
-from .routers import cameras, events, internal, system
+from .models import Event, PasswordResetToken, RefreshSession
+from .routers import auth, cameras, events, internal, system
 
 logger = logging.getLogger("cftv")
 
@@ -24,6 +24,16 @@ async def cleanup_expired_events():
         )
         with SessionLocal() as db:
             result = db.execute(delete(Event).where(Event.clip_start < cutoff))
+            db.execute(
+                delete(PasswordResetToken).where(
+                    PasswordResetToken.expires_at < datetime.now(timezone.utc)
+                )
+            )
+            db.execute(
+                delete(RefreshSession).where(
+                    RefreshSession.expires_at < datetime.now(timezone.utc)
+                )
+            )
             db.commit()
             if result.rowcount:
                 logger.info("removed expired event metadata count=%s", result.rowcount)
@@ -61,6 +71,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(system.router)
+app.include_router(auth.router, prefix=settings.api_prefix)
 app.include_router(cameras.router, prefix=settings.api_prefix)
 app.include_router(events.router, prefix=settings.api_prefix)
 app.include_router(internal.router)

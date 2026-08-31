@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 
 class CameraBase(BaseModel):
@@ -84,3 +84,64 @@ class HealthOut(BaseModel):
     active_streams: int
     version: str
     effective_retention_hours: int
+
+
+class RegisterRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    email: EmailStr
+    full_name: str = Field(min_length=2, max_length=120)
+    password: str = Field(min_length=12, max_length=128)
+
+    @field_validator("full_name")
+    @classmethod
+    def normalize_full_name(cls, value: str) -> str:
+        return " ".join(value.split())
+
+
+class LoginRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    email: EmailStr
+    password: str = Field(min_length=1, max_length=128)
+
+
+class UserOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    email: EmailStr
+    full_name: str
+    is_active: bool
+    created_at: datetime
+    last_login_at: datetime | None
+
+
+class AuthOut(BaseModel):
+    access_token: str
+    token_type: Literal["bearer"] = "bearer"
+    expires_in: int
+    user: UserOut
+
+
+class ForgotPasswordRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    email: EmailStr
+
+
+class ForgotPasswordOut(BaseModel):
+    message: str
+    debug_reset_token: str | None = None
+
+
+class ResetPasswordRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    token: str = Field(min_length=32, max_length=256)
+    new_password: str = Field(min_length=12, max_length=128)
+
+
+class ChangePasswordRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    current_password: str = Field(min_length=1, max_length=128)
+    new_password: str = Field(min_length=12, max_length=128)
+
+
+class MessageOut(BaseModel):
+    message: str

@@ -2,7 +2,7 @@
 
 Backend próprio para monitoramento de até **8 câmeras RTMP**, com áudio, HLS ao vivo, gravação contínua, histórico móvel de **1 hora**, status de conexão e eventos com pré/pós-alarme.
 
-Versão atual da API: **0.3.4**.
+Versão atual da API: **0.4.0**.
 
 ## Regra do histórico de 1 hora
 
@@ -36,7 +36,29 @@ Exemplo às 17:00:
 - remoção automática dos metadados de eventos expirados;
 - PostgreSQL, logs, healthcheck e Docker Compose;
 - proxy HTTPS e proteção por usuário/senha para publicação em servidor;
+- registro, login, logout, usuário atual e encerramento de todas as sessões;
+- senhas protegidas com Argon2id e bloqueio temporário de tentativas repetidas;
+- access token JWT curto e refresh token rotativo em cookie `HttpOnly`;
+- recuperação e alteração de senha com revogação das sessões anteriores;
 - testes unitários, testes de contrato e pipeline do GitHub Actions.
+
+## Login e registro — endpoints para o frontend
+
+| Método | Endpoint | Autenticação | Uso |
+|---|---|---|---|
+| `POST` | `/api/v1/auth/register` | pública | criar usuário e iniciar sessão |
+| `POST` | `/api/v1/auth/login` | pública | autenticar usuário |
+| `POST` | `/api/v1/auth/refresh` | cookie HttpOnly | renovar a sessão |
+| `POST` | `/api/v1/auth/logout` | cookie HttpOnly | encerrar a sessão atual |
+| `POST` | `/api/v1/auth/logout-all` | Bearer | encerrar todas as sessões |
+| `GET` | `/api/v1/auth/me` | Bearer | consultar usuário autenticado |
+| `POST` | `/api/v1/auth/forgot-password` | pública | solicitar recuperação |
+| `POST` | `/api/v1/auth/reset-password` | token de recuperação | redefinir a senha |
+| `POST` | `/api/v1/auth/change-password` | Bearer | alterar a senha atual |
+
+O contrato completo, exemplos JSON, código TypeScript e fluxo de renovação estão
+em [`AUTH_API.md`](AUTH_API.md). O frontend deve manter o access token somente em
+memória e chamar os endpoints de sessão com `credentials: "include"`.
 
 ## Arquitetura
 
@@ -62,8 +84,9 @@ O frontend nunca acessa PostgreSQL nem a API administrativa do MediaMTX. Ele usa
 
 1. [`FRONTEND_HANDOFF.md`](FRONTEND_HANDOFF.md) — instruções de implementação, tipos TypeScript e checklist.
 2. [`BACKEND_API.md`](BACKEND_API.md) — contrato de todos os endpoints e exemplos.
-3. `http://localhost:8000/docs` — Swagger executável quando o ambiente está ativo.
-4. `http://localhost:8000/openapi.json` — contrato OpenAPI para gerar tipos automaticamente.
+3. [`AUTH_API.md`](AUTH_API.md) — contrato completo de login, tokens e recuperação de senha.
+4. `http://localhost:8000/docs` — Swagger executável quando o ambiente está ativo.
+5. `http://localhost:8000/openapi.json` — contrato OpenAPI para gerar tipos automaticamente.
 
 ## Executar para desenvolvimento
 
@@ -71,6 +94,7 @@ Pré-requisitos: Docker Desktop ou Docker Engine com Compose.
 
 ```bash
 cp .env.example .env
+# Troque AUTH_JWT_SECRET por uma chave aleatória com pelo menos 32 caracteres.
 docker compose up --build -d
 docker compose ps
 ```
@@ -167,7 +191,8 @@ de oito câmeras a 4 Mbit/s.
 
 ## Limites conscientes do beta
 
-- um usuário/senha HTTP compartilhado no ambiente público, sem contas individuais;
+- a autenticação individual já está pronta, mas o frontend atual ainda precisa
+  implementar as telas e passar o Bearer token nas rotas protegidas;
 - retenção global fixa em 1 hora;
 - sem PTZ, análise de vídeo ou notificações push;
 - sem transcodificação: a câmera deve enviar codecs compatíveis;

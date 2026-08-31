@@ -9,6 +9,8 @@ os.environ["PUBLIC_RTMP_BASE_URL"] = "rtmp://localhost:1935"
 os.environ["PUBLIC_HLS_BASE_URL"] = "http://localhost:8888"
 os.environ["PUBLIC_PLAYBACK_BASE_URL"] = "http://localhost:9996"
 os.environ["RECORD_DELETE_AFTER"] = "1h"
+os.environ["AUTH_JWT_SECRET"] = "unit-test-secret-with-at-least-32-characters"
+os.environ["AUTH_DEBUG_RETURN_RESET_TOKEN"] = "true"
 
 from fastapi.testclient import TestClient
 

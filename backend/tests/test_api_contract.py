@@ -15,7 +15,7 @@ def test_health_contract():
     assert payload["ok"] is True
     assert payload["database"] == "up"
     assert payload["mediamtx"] == "up"
-    assert payload["version"] == "0.3.4"
+    assert payload["version"] == "0.4.0"
     assert payload["effective_retention_hours"] == 1
 
 

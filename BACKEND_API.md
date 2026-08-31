@@ -1,12 +1,32 @@
 # Contrato da API — Malupe Cam Beta
 
-Versão: `0.3.4`
+Versão: `0.4.0`
 Base local: `http://localhost:8000`
 Prefixo: `/api/v1`
 OpenAPI: `/openapi.json`
 Swagger: `/docs`
 
 JSON usa nomes em `snake_case`. Datas são RFC3339/ISO 8601 e devem incluir fuso horário, preferencialmente UTC com sufixo `Z`.
+
+## Autenticação
+
+O backend possui registro, login, access JWT, refresh token rotativo, logout,
+usuário atual, troca e recuperação de senha. Veja o contrato completo e os
+exemplos para o frontend em [`AUTH_API.md`](AUTH_API.md).
+
+Rotas resumidas:
+
+```text
+POST /api/v1/auth/register
+POST /api/v1/auth/login
+POST /api/v1/auth/refresh
+POST /api/v1/auth/logout
+POST /api/v1/auth/logout-all
+GET  /api/v1/auth/me
+POST /api/v1/auth/forgot-password
+POST /api/v1/auth/reset-password
+POST /api/v1/auth/change-password
+```
 
 ## Saúde
 
@@ -18,7 +38,7 @@ JSON usa nomes em `snake_case`. Datas são RFC3339/ISO 8601 e devem incluir fuso
   "database": "up",
   "mediamtx": "up",
   "active_streams": 2,
-  "version": "0.3.4",
+  "version": "0.4.0",
   "effective_retention_hours": 1
 }
 ```
