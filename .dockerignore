@@ -1,0 +1,14 @@
+.git
+.github
+.env
+.env.*
+**/node_modules
+**/dist
+**/.pytest_cache
+**/.ruff_cache
+**/__pycache__
+recordings
+postgres_data
+auto.crt
+auto.key
+*.log

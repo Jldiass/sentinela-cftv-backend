@@ -2,7 +2,7 @@
 
 Backend próprio para monitoramento de até **8 câmeras RTMP**, com áudio, HLS ao vivo, gravação contínua, histórico móvel de **1 hora**, status de conexão e eventos com pré/pós-alarme.
 
-Versão atual da API: **0.3.2**.
+Versão atual da API: **0.3.3**.
 
 ## Regra do histórico de 1 hora
 
@@ -141,6 +141,16 @@ O GitHub compartilha o código, mas não executa RTMP continuamente. Para uma UR
 Use [`DEPLOY.md`](DEPLOY.md) e `compose.prod.yml`. O conjunto público inclui Caddy com HTTPS automático e autenticação HTTP. O backend, o banco e as APIs internas não são expostos diretamente.
 
 Para uma hora de oito câmeras a 4 Mbit/s, reserve pelo menos 25 GB úteis para gravações e margem. O consumo teórico de vídeo é aproximadamente 14,4 GB por hora; sistema, banco e variação de bitrate exigem espaço adicional.
+
+### Railway
+
+Para publicar painel, API, mídia e RTMP em um serviço Railway, siga
+[`DEPLOY_RAILWAY.md`](DEPLOY_RAILWAY.md). A imagem `Dockerfile.railway` inclui o
+frontend atual e expõe HTTP na porta `8080` e RTMP na porta `1935`.
+
+O Railway exige um TCP Proxy para o RTMP e um volume montado em `/data`. O plano
+gratuito é útil apenas para validação: seu volume de 0,5 GB não comporta uma hora
+de oito câmeras a 4 Mbit/s.
 
 ## Regras técnicas das câmeras
 

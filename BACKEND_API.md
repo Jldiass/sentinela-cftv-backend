@@ -1,6 +1,6 @@
 # Contrato da API — Malupe Cam Beta
 
-Versão: `0.3.2`
+Versão: `0.3.3`
 Base local: `http://localhost:8000`
 Prefixo: `/api/v1`
 OpenAPI: `/openapi.json`
@@ -18,7 +18,7 @@ JSON usa nomes em `snake_case`. Datas são RFC3339/ISO 8601 e devem incluir fuso
   "database": "up",
   "mediamtx": "up",
   "active_streams": 2,
-  "version": "0.3.2",
+  "version": "0.3.3",
   "effective_retention_hours": 1
 }
 ```

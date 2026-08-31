@@ -5,7 +5,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    app_version: str = "0.3.2"
+    app_version: str = "0.3.3"
     database_url: str = "postgresql+psycopg://cftv:cftv-local@postgres:5432/cftv"
     mediamtx_api_url: str = "http://mediamtx:9997"
     mediamtx_playback_url: str = "http://mediamtx:9996"
