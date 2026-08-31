@@ -17,7 +17,8 @@ Este projeto possui uma imagem única para Railway com:
 3. TCP Proxy gerado pelo Railway para a porta interna `1935`.
 4. Volume montado em `/data`.
 
-O Railway usa `Dockerfile.railway` automaticamente por meio de `railway.toml`.
+O Railway detecta o `Dockerfile` na raiz automaticamente. `Dockerfile.railway`
+permanece como cópia explícita para referência e compatibilidade.
 
 ## Variáveis
 
