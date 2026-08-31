@@ -53,6 +53,9 @@ def test_camera_event_and_recording_flow(monkeypatch):
         assert camera["stream_path"] == f"live/{original_key}"
         assert camera["rtmp_server_url"] == "rtmp://localhost:1935/live"
         assert camera["rtmp_url"] == f"{camera['rtmp_server_url']}/{original_key}"
+        assert camera["hls_url"].endswith(
+            f"/live/{original_key}/index.m3u8?cookieCheck=1"
+        )
 
         listed = client.get("/api/v1/cameras")
         assert listed.status_code == 200

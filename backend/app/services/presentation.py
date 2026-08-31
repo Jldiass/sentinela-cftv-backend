@@ -31,7 +31,8 @@ def stream_credentials(camera: Camera) -> StreamCredentials:
         rtmp_server_url=rtmp_server_url,
         rtmp_url=f"{rtmp_server_url}/{camera.stream_key}",
         hls_url=(
-            f"{settings.clean_base_url(settings.public_hls_base_url)}/{path}/index.m3u8"
+            f"{settings.clean_base_url(settings.public_hls_base_url)}/"
+            f"{path}/index.m3u8?cookieCheck=1"
         ),
     )
 

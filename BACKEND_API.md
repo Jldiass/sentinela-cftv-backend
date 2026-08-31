@@ -1,6 +1,6 @@
 # Contrato da API — Malupe Cam Beta
 
-Versão: `0.3.3`
+Versão: `0.3.4`
 Base local: `http://localhost:8000`
 Prefixo: `/api/v1`
 OpenAPI: `/openapi.json`
@@ -18,7 +18,7 @@ JSON usa nomes em `snake_case`. Datas são RFC3339/ISO 8601 e devem incluir fuso
   "database": "up",
   "mediamtx": "up",
   "active_streams": 2,
-  "version": "0.3.3",
+  "version": "0.3.4",
   "effective_retention_hours": 1
 }
 ```
@@ -49,7 +49,7 @@ Retorna apenas câmeras habilitadas. Use `?include_disabled=true` na administra�
     "stream_path": "live/cam-chave-aleatoria",
     "rtmp_server_url": "rtmp://host:1935/live",
     "rtmp_url": "rtmp://host:1935/live/cam-chave-aleatoria",
-    "hls_url": "https://host/hls/live/cam-chave-aleatoria/index.m3u8",
+    "hls_url": "https://host/hls/live/cam-chave-aleatoria/index.m3u8?cookieCheck=1",
     "effective_retention_hours": 1
   }
 ]
@@ -113,7 +113,7 @@ Resposta `204`. Se houver publicação ativa, retorna `409`; desconecte a câmer
   "stream_path": "live/cam-chave-aleatoria",
   "rtmp_server_url": "rtmp://host:1935/live",
   "rtmp_url": "rtmp://host:1935/live/cam-chave-aleatoria",
-  "hls_url": "https://host/hls/live/cam-chave-aleatoria/index.m3u8"
+  "hls_url": "https://host/hls/live/cam-chave-aleatoria/index.m3u8?cookieCheck=1"
 }
 ```
 
