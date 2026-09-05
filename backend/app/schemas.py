@@ -30,13 +30,9 @@ class CameraUpdate(BaseModel):
 class CameraOut(CameraBase):
     model_config = ConfigDict(from_attributes=True)
     id: int
-    stream_key: str
     enabled: bool
     created_at: datetime
     status: Literal["online", "offline", "unstable"] = "offline"
-    stream_path: str = ""
-    rtmp_server_url: str = ""
-    rtmp_url: str = ""
     hls_url: str = ""
     effective_retention_hours: int
 
@@ -112,6 +108,8 @@ class UserOut(BaseModel):
     is_active: bool
     created_at: datetime
     last_login_at: datetime | None
+    roles: list[str] = Field(default_factory=list)
+    permissions: list[str] = Field(default_factory=list)
 
 
 class AuthOut(BaseModel):
@@ -145,3 +143,127 @@ class ChangePasswordRequest(BaseModel):
 
 class MessageOut(BaseModel):
     message: str
+
+
+class PermissionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    code: str
+    description: str
+
+
+class RoleBase(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(min_length=2, max_length=80)
+    description: str = Field(default="", max_length=240)
+    permission_codes: list[str] = Field(default_factory=list)
+
+
+class RoleCreate(RoleBase):
+    pass
+
+
+class RoleUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str | None = Field(default=None, min_length=2, max_length=80)
+    description: str | None = Field(default=None, max_length=240)
+    permission_codes: list[str] | None = None
+
+
+class RoleOut(RoleBase):
+    id: int
+    is_system: bool
+    user_count: int
+    created_at: datetime
+
+
+class UserCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    email: EmailStr
+    full_name: str = Field(min_length=2, max_length=120)
+    password: str = Field(min_length=12, max_length=128)
+    is_active: bool = True
+    role_ids: list[int] = Field(default_factory=list)
+
+
+class UserUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    email: EmailStr | None = None
+    full_name: str | None = Field(default=None, min_length=2, max_length=120)
+    password: str | None = Field(default=None, min_length=12, max_length=128)
+    is_active: bool | None = None
+    role_ids: list[int] | None = None
+
+
+class UserAdminOut(UserOut):
+    updated_at: datetime
+
+
+class MosaicCameraInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    camera_id: int = Field(gt=0)
+    position: int = Field(ge=1, le=36)
+
+
+class MosaicBase(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(min_length=2, max_length=120)
+    capacity: int = Field(ge=1, le=36)
+    active: bool = True
+    cameras: list[MosaicCameraInput] = Field(default_factory=list)
+    user_ids: list[int] = Field(default_factory=list)
+    role_ids: list[int] = Field(default_factory=list)
+
+
+class MosaicCreate(MosaicBase):
+    pass
+
+
+class MosaicUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str | None = Field(default=None, min_length=2, max_length=120)
+    capacity: int | None = Field(default=None, ge=1, le=36)
+    active: bool | None = None
+    cameras: list[MosaicCameraInput] | None = None
+    user_ids: list[int] | None = None
+    role_ids: list[int] | None = None
+
+
+class MosaicCameraOut(BaseModel):
+    camera_id: int
+    position: int
+    camera: CameraOut
+
+
+class MosaicOut(BaseModel):
+    id: int
+    name: str
+    capacity: int
+    columns: int
+    rows: int
+    active: bool
+    camera_count: int
+    user_count: int
+    cameras: list[MosaicCameraOut]
+    user_ids: list[int]
+    role_ids: list[int]
+    created_at: datetime
+    updated_at: datetime
+
+
+class CameraStatusSummary(BaseModel):
+    online: int
+    offline: int
+    unstable: int
+    total: int
+    generated_at: datetime
+
+
+class CameraStatusPeriodOut(BaseModel):
+    id: int
+    camera_id: int
+    camera_name: str
+    status: Literal["online", "offline", "unstable"]
+    started_at: datetime
+    ended_at: datetime | None
+    duration_seconds: int | None

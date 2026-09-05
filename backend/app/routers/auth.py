@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 
 from ..config import settings
 from ..database import get_db
-from ..models import PasswordResetToken, RefreshSession, User
+from ..models import PasswordResetToken, RefreshSession, Role, User
 from ..schemas import (
     AuthOut,
     ChangePasswordRequest,
@@ -48,6 +48,7 @@ from ..services.auth import (
     token_digest,
     verify_password,
 )
+from ..services.rbac import permission_codes, role_names
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 DbSession = Annotated[Session, Depends(get_db)]
@@ -92,12 +93,25 @@ def clear_refresh_cookie(response: Response) -> None:
     response.headers["Cache-Control"] = "no-store"
 
 
+def user_output(user: User) -> UserOut:
+    return UserOut(
+        id=user.id,
+        email=user.email,
+        full_name=user.full_name,
+        is_active=user.is_active,
+        created_at=user.created_at,
+        last_login_at=user.last_login_at,
+        roles=role_names(user),
+        permissions=sorted(permission_codes(user)),
+    )
+
+
 def auth_output(user: User) -> AuthOut:
     access_token, expires_in = create_access_token(user)
     return AuthOut(
         access_token=access_token,
         expires_in=expires_in,
-        user=UserOut.model_validate(user),
+        user=user_output(user),
     )
 
 
@@ -130,8 +144,25 @@ def get_current_user(
 CurrentUser = Annotated[User, Depends(get_current_user)]
 
 
+def require_permission(code: str):
+    def dependency(user: CurrentUser) -> User:
+        if code not in permission_codes(user):
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                "Você não possui permissão para esta operação",
+            )
+        return user
+
+    return dependency
+
+
 @router.post("/register", response_model=AuthOut, status_code=status.HTTP_201_CREATED)
 def register(payload: RegisterRequest, response: Response, db: DbSession):
+    if (db.scalar(select(func.count()).select_from(User)) or 0) > 0:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Cadastro inicial encerrado. Solicite acesso a um administrador.",
+        )
     email = normalize_email(str(payload.email))
     if db.scalar(select(User.id).where(User.email == email)):
         raise HTTPException(status.HTTP_409_CONFLICT, "E-mail já cadastrado")
@@ -146,6 +177,13 @@ def register(payload: RegisterRequest, response: Response, db: DbSession):
     except IntegrityError as exc:
         db.rollback()
         raise HTTPException(status.HTTP_409_CONFLICT, "E-mail já cadastrado") from exc
+    admin_role = db.scalar(select(Role).where(Role.name == "Administrador"))
+    if not admin_role:
+        db.rollback()
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE, "Perfis não inicializados"
+        )
+    user.roles.append(admin_role)
     return issue_session(db, response, user)
 
 
@@ -260,7 +298,7 @@ def logout_all(response: Response, user: CurrentUser, db: DbSession):
 
 @router.get("/me", response_model=UserOut)
 def me(user: CurrentUser):
-    return user
+    return user_output(user)
 
 
 @router.post("/forgot-password", response_model=ForgotPasswordOut)

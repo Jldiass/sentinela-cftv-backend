@@ -36,6 +36,7 @@ PUBLIC_HLS_BASE_URL=/hls
 PUBLIC_PLAYBACK_BASE_URL=/playback
 RECORD_DELETE_AFTER=1h
 CAMERA_LIMIT=8
+STATUS_POLL_SECONDS=10
 ```
 
 Para ativar e-mail de recuperação de senha, configure também `SMTP_HOST`,
@@ -62,6 +63,10 @@ um volume Railway, os cadastros persistem entre deploys. Para PostgreSQL,
 adicione o serviço PostgreSQL do Railway e configure `DATABASE_URL` com a URL
 fornecida pela plataforma.
 
+Antes de iniciar a API, a imagem executa `alembic upgrade head`. Assim as tabelas
+de mosaicos, perfis, permissões, auditoria e conectividade são criadas sem apagar
+as câmeras e eventos que já existem no volume.
+
 ## Capacidade de gravação
 
 O volume deve ser dimensionado pelo bitrate real. Oito câmeras a 4 Mbit/s
@@ -69,11 +74,33 @@ consomem aproximadamente 14,4 GB em uma hora, sem contar margem operacional.
 O volume gratuito de 0,5 GB não comporta esse cenário e o limite de 5 GB do
 plano Hobby também não sustenta uma hora completa das oito câmeras.
 
+### Gravação em Cloudflare R2 (recomendado para não depender do volume)
+
+Configure estas variáveis para que cada segmento gravado seja enviado ao R2
+e apagado do disco local logo em seguida (o volume passa a guardar só um
+buffer de 10 minutos, não a hora inteira):
+
+```env
+R2_ACCOUNT_ID=seu-account-id-cloudflare
+R2_ACCESS_KEY_ID=gerado-em-r2-manage-api-tokens
+R2_SECRET_ACCESS_KEY=gerado-em-r2-manage-api-tokens
+R2_BUCKET_NAME=malupe-cam-recordings
+```
+
+Custo esperado: R2 tem 10 GB de armazenamento e 1 milhão de operações de
+escrita grátis por mês, sem cobrar saída (egress). Com 8 câmeras a 4 Mbit/s
+e segmentos de 60s (configurado em `mediamtx/railway.yml`), o uso fica em
+torno de 14 GB armazenados (janela móvel de 1h) e ~345 mil escritas/mês —
+dentro ou muito próximo do nível grátis; o excedente de armazenamento custa
+centavos de dólar por mês. Sem essas variáveis configuradas, o sistema
+continua gravando só no volume local, como antes.
+
 ## Validação
 
 1. Abra `https://DOMINIO/railway-health`; deve retornar `ok: true`.
-2. Entre no painel com o usuário e senha configurados.
-3. Cadastre uma câmera.
+2. Entre na proteção HTTP com `BASIC_AUTH_USER` e `BASIC_AUTH_PASSWORD`.
+3. No primeiro deploy, crie o administrador por `POST /api/v1/auth/register`.
+4. Entre na aplicação e cadastre uma câmera.
 4. Cole a URL `rtmp_url` no campo personalizado do Mibo.
 5. Confirme estado `unstable` e depois `online`.
 6. Verifique imagem, áudio e um segmento no Histórico.

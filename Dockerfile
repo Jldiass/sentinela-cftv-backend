@@ -24,6 +24,8 @@ COPY backend/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY backend/app ./app
+COPY backend/alembic.ini ./alembic.ini
+COPY backend/migrations ./migrations
 COPY mediamtx/railway.yml /etc/mediamtx.yml
 COPY railway/nginx.conf /etc/nginx/nginx.conf
 COPY railway/start.sh /start.sh

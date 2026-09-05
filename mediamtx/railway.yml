@@ -36,8 +36,14 @@ pathDefaults:
   recordPath: /data/recordings/%path/%Y-%m-%d_%H-%M-%S-%f
   recordFormat: fmp4
   recordPartDuration: 1s
-  recordSegmentDuration: 10s
-  recordDeleteAfter: 1h
+  # 60s segments keep R2 upload/list operations well within the free tier
+  # (8 cameras * 60 uploads/hour vs. 360/hour at the previous 10s duration).
+  recordSegmentDuration: 60s
+  # Local disk is only a short safety buffer now: each finished segment is
+  # uploaded to R2 and deleted immediately by upload_segment.py. If R2 is
+  # unreachable, this still reclaims the Railway volume after 10 minutes.
+  recordDeleteAfter: 10m
+  runOnRecordSegmentComplete: python3 /app/scripts/upload_segment.py
 
 paths:
   all_others:

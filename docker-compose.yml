@@ -40,6 +40,7 @@ services:
       RECORD_DELETE_AFTER: ${RECORD_DELETE_AFTER:-1h}
       CAMERA_LIMIT: ${CAMERA_LIMIT:-8}
       UNSTABLE_AFTER_SECONDS: ${UNSTABLE_AFTER_SECONDS:-20}
+      STATUS_POLL_SECONDS: ${STATUS_POLL_SECONDS:-10}
       API_PREFIX: /api/v1
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:5173,http://localhost:8000}
       AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:?Defina AUTH_JWT_SECRET no arquivo .env}

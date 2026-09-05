@@ -46,13 +46,9 @@ def camera_output(camera: Camera, status: str = "offline") -> CameraOut:
         audio_enabled=camera.audio_enabled,
         pre_alarm_seconds=camera.pre_alarm_seconds,
         post_alarm_seconds=camera.post_alarm_seconds,
-        stream_key=camera.stream_key,
         enabled=camera.enabled,
         created_at=camera.created_at,
         status=status,
-        stream_path=credentials.stream_path,
-        rtmp_server_url=credentials.rtmp_server_url,
-        rtmp_url=credentials.rtmp_url,
         hls_url=credentials.hls_url,
         effective_retention_hours=settings.effective_retention_hours,
     )

@@ -2,7 +2,7 @@
 
 Backend próprio para monitoramento de até **8 câmeras RTMP**, com áudio, HLS ao vivo, gravação contínua, histórico móvel de **1 hora**, status de conexão e eventos com pré/pós-alarme.
 
-Versão atual da API: **0.4.0**.
+Versão atual da API: **0.5.0**.
 
 ## Regra do histórico de 1 hora
 
@@ -41,12 +41,17 @@ Exemplo às 17:00:
 - access token JWT curto e refresh token rotativo em cookie `HttpOnly`;
 - recuperação e alteração de senha com revogação das sessões anteriores;
 - testes unitários, testes de contrato e pipeline do GitHub Actions.
+- cadastro administrativo de usuários, perfis e permissões (RBAC);
+- mosaicos persistentes de 1 a 36 posições, com acesso por usuário ou perfil;
+- visão geral dedicada à conectividade e relatório CSV de mudanças de estado;
+- migrações de banco executadas pelo Alembic antes da inicialização;
+- credenciais RTMP isoladas em endpoint administrativo e logs de auditoria.
 
 ## Login e registro — endpoints para o frontend
 
 | Método | Endpoint | Autenticação | Uso |
 |---|---|---|---|
-| `POST` | `/api/v1/auth/register` | pública | criar usuário e iniciar sessão |
+| `POST` | `/api/v1/auth/register` | pública somente sem usuários | criar o primeiro administrador |
 | `POST` | `/api/v1/auth/login` | pública | autenticar usuário |
 | `POST` | `/api/v1/auth/refresh` | cookie HttpOnly | renovar a sessão |
 | `POST` | `/api/v1/auth/logout` | cookie HttpOnly | encerrar a sessão atual |
@@ -59,6 +64,10 @@ Exemplo às 17:00:
 O contrato completo, exemplos JSON, código TypeScript e fluxo de renovação estão
 em [`AUTH_API.md`](AUTH_API.md). O frontend deve manter o access token somente em
 memória e chamar os endpoints de sessão com `credentials: "include"`.
+
+Depois do primeiro administrador, novas contas são criadas exclusivamente por
+`POST /api/v1/users`. Câmeras, eventos, gravações, mosaicos e administração
+exigem Bearer token e a permissão correspondente.
 
 ## Arquitetura
 
@@ -120,14 +129,15 @@ Endereços locais:
 ## Fluxo de teste para 1 a 8 câmeras
 
 1. Inicie os containers.
-2. Abra `/docs` e crie as câmeras com `POST /api/v1/cameras`.
-3. Abra as credenciais RTMP devolvidas pela API.
-4. No **Mibo Smart/Mibo Cam**, apague o conteúdo anterior do campo `URL RTMP` e
+2. Crie o primeiro administrador em `POST /api/v1/auth/register` e faça login.
+3. Crie as câmeras com `POST /api/v1/cameras` usando o Bearer token.
+4. Abra as credenciais RTMP em `GET /api/v1/cameras/{id}/stream`.
+5. No **Mibo Smart/Mibo Cam**, apague o conteúdo anterior do campo `URL RTMP` e
    cole somente `rtmp_url`, uma única vez.
-5. Em outros equipamentos com campos separados, use `rtmp_server_url` no campo servidor e
+6. Em outros equipamentos com campos separados, use `rtmp_server_url` no campo servidor e
    `stream_key` no campo chave.
-6. Configure o encoder para **H.264 + AAC**.
-7. Se não houver câmera disponível, execute no Windows:
+7. Configure o encoder para **H.264 + AAC**.
+8. Se não houver câmera disponível, execute no Windows:
 
 ```powershell
 .\scripts\test-streams.ps1 -Count 2
@@ -191,8 +201,7 @@ de oito câmeras a 4 Mbit/s.
 
 ## Limites conscientes do beta
 
-- a autenticação individual já está pronta, mas o frontend atual ainda precisa
-  implementar as telas e passar o Bearer token nas rotas protegidas;
+- o envio real de e-mail de recuperação depende de um provedor SMTP configurado;
 - retenção global fixa em 1 hora;
 - sem PTZ, análise de vídeo ou notificações push;
 - sem transcodificação: a câmera deve enviar codecs compatíveis;

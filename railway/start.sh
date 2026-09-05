@@ -13,6 +13,7 @@ export CORS_ORIGINS="${CORS_ORIGINS:-http://localhost:8080}"
 
 mkdir -p /data/recordings
 htpasswd -bcB /etc/nginx/.htpasswd "$BASIC_AUTH_USER" "$BASIC_AUTH_PASSWORD" >/dev/null
+alembic -c /app/alembic.ini upgrade head
 
 uvicorn app.main:app --host 127.0.0.1 --port 8000 --log-config app/logging.json &
 api_pid=$!

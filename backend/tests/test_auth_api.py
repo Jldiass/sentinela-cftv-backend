@@ -70,11 +70,13 @@ def test_duplicate_registration_login_and_me():
         )
 
     assert first.status_code == 201
-    assert duplicate.status_code == 409
+    assert duplicate.status_code == 403
     assert wrong.status_code == 401
     assert logged_in.status_code == 200
     assert current.status_code == 200
     assert current.json()["email"] == email
+    assert current.json()["roles"] == ["Administrador"]
+    assert "users.manage" in current.json()["permissions"]
 
 
 def test_refresh_token_is_rotated_and_reuse_revokes_the_family():

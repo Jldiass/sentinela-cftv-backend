@@ -32,8 +32,9 @@ pathDefaults:
   recordPath: /recordings/%path/%Y-%m-%d_%H-%M-%S-%f
   recordFormat: fmp4
   recordPartDuration: 1s
-  recordSegmentDuration: 10s
-  recordDeleteAfter: 1h
+  recordSegmentDuration: 60s
+  recordDeleteAfter: 10m
+  runOnRecordSegmentComplete: python3 /app/scripts/upload_segment.py
 
 paths:
   all_others:

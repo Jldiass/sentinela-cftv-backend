@@ -6,7 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    app_version: str = "0.4.0"
+    app_version: str = "0.5.0"
     database_url: str = "postgresql+psycopg://cftv:cftv-local@postgres:5432/cftv"
     mediamtx_api_url: str = "http://mediamtx:9997"
     mediamtx_playback_url: str = "http://mediamtx:9996"
@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     record_delete_after: str = "1h"
     camera_limit: int = 8
     unstable_after_seconds: int = 20
+    status_poll_seconds: int = Field(default=10, ge=5, le=60)
     api_prefix: str = "/api/v1"
     cors_origins: str = (
         "http://localhost:3000,http://localhost:5173,http://localhost:8000"
@@ -41,7 +42,17 @@ class Settings(BaseSettings):
     smtp_password: SecretStr | None = None
     smtp_from: str | None = None
     smtp_starttls: bool = True
+    r2_account_id: str | None = None
+    r2_access_key_id: str | None = None
+    r2_secret_access_key: SecretStr | None = None
+    r2_bucket_name: str | None = None
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    @property
+    def r2_endpoint_url(self) -> str | None:
+        if not self.r2_account_id:
+            return None
+        return f"https://{self.r2_account_id}.r2.cloudflarestorage.com"
 
     @property
     def allowed_origins(self) -> list[str]:

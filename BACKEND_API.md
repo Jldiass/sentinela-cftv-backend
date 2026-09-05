@@ -1,6 +1,6 @@
 # Contrato da API — Malupe Cam Beta
 
-Versão: `0.4.0`
+Versão: `0.5.0`
 Base local: `http://localhost:8000`
 Prefixo: `/api/v1`
 OpenAPI: `/openapi.json`
@@ -13,6 +13,10 @@ JSON usa nomes em `snake_case`. Datas são RFC3339/ISO 8601 e devem incluir fuso
 O backend possui registro, login, access JWT, refresh token rotativo, logout,
 usuário atual, troca e recuperação de senha. Veja o contrato completo e os
 exemplos para o frontend em [`AUTH_API.md`](AUTH_API.md).
+
+Exceto registro inicial, login, refresh, logout e recuperação de senha, os
+endpoints `/api/v1` exigem `Authorization: Bearer {access_token}`. A resposta
+`403` indica que o usuário autenticado não possui a permissão necessária.
 
 Rotas resumidas:
 
@@ -38,7 +42,7 @@ POST /api/v1/auth/change-password
   "database": "up",
   "mediamtx": "up",
   "active_streams": 2,
-  "version": "0.4.0",
+  "version": "0.5.0",
   "effective_retention_hours": 1
 }
 ```
@@ -62,13 +66,9 @@ Retorna apenas câmeras habilitadas. Use `?include_disabled=true` na administra�
     "audio_enabled": true,
     "pre_alarm_seconds": 30,
     "post_alarm_seconds": 60,
-    "stream_key": "cam-chave-aleatoria",
     "enabled": true,
     "created_at": "2026-08-29T12:00:00Z",
     "status": "online",
-    "stream_path": "live/cam-chave-aleatoria",
-    "rtmp_server_url": "rtmp://host:1935/live",
-    "rtmp_url": "rtmp://host:1935/live/cam-chave-aleatoria",
     "hls_url": "https://host/hls/live/cam-chave-aleatoria/index.m3u8?cookieCheck=1",
     "effective_retention_hours": 1
   }
@@ -91,7 +91,9 @@ Retorna apenas câmeras habilitadas. Use `?include_disabled=true` na administra�
 }
 ```
 
-Resposta: `201` com a câmera completa. O backend gera `rtmp_server_url`, `stream_key`, `rtmp_url` e `hls_url`. Há no máximo oito cadastros.
+Resposta: `201` com os dados operacionais da câmera. O backend gera as
+credenciais secretas, mas elas só aparecem no endpoint administrativo
+`GET /cameras/{id}/stream`. Há no máximo oito cadastros.
 
 Campos desconhecidos retornam `422`. Não envie retenção no cadastro: ela é global em uma hora.
 
@@ -154,6 +156,57 @@ por status, HLS, gravação e playback.
 `POST /api/v1/cameras/{camera_id}/stream-key/rotate`
 
 Exige canal offline. Retorna `409` se conectado e `503` se não for possível confirmar o estado do MediaMTX. Depois da troca, a câmera deve ser reconfigurada com a nova URL.
+
+Permissões: leitura exige `cameras.read`; criar, editar, excluir e consultar ou
+trocar credenciais exige `cameras.manage`. Usuários sem administração enxergam
+somente câmeras pertencentes aos mosaicos liberados para eles.
+
+## Mosaicos
+
+- `GET /api/v1/mosaics` — lista mosaicos acessíveis;
+- `POST /api/v1/mosaics` — cria (`mosaics.manage`);
+- `GET /api/v1/mosaics/{id}` e `/view` — consulta;
+- `PATCH /api/v1/mosaics/{id}` — altera (`mosaics.manage`);
+- `DELETE /api/v1/mosaics/{id}` — exclui (`mosaics.manage`).
+
+Criação de exemplo:
+
+```json
+{
+  "name": "Portaria",
+  "capacity": 4,
+  "active": true,
+  "cameras": [{"camera_id": 1, "position": 1}],
+  "user_ids": [2],
+  "role_ids": [2]
+}
+```
+
+`capacity` aceita de 1 a 36. `columns` e `rows` são calculados no servidor.
+Uma câmera e uma posição não podem se repetir no mesmo mosaico.
+
+## Usuários, perfis e permissões
+
+| Método | Endpoint | Permissão |
+|---|---|---|
+| `GET/POST` | `/api/v1/users` | `users.manage` |
+| `GET/PATCH/DELETE` | `/api/v1/users/{id}` | `users.manage` |
+| `GET/POST` | `/api/v1/roles` | `permissions.manage` |
+| `PATCH/DELETE` | `/api/v1/roles/{id}` | `permissions.manage` |
+| `GET` | `/api/v1/permissions` | `permissions.manage` |
+
+Perfis padrão: `Administrador`, `Operador` e `Cliente`. Perfis de sistema não
+podem ser excluídos nem renomeados. Alterações de senha, ativação ou perfil
+revogam as sessões antigas do usuário.
+
+## Conectividade e relatório
+
+- `GET /api/v1/camera-status/summary` (`overview.read`);
+- `GET /api/v1/camera-status/history` (`reports.read`);
+- `GET /api/v1/camera-status/report` (`reports.read`, CSV).
+
+Filtros de histórico/relatório: `camera_id`, `status`, `from` e `to`. O backend
+mantém períodos de estado, fechando o período anterior a cada transição.
 
 ## Ao vivo e áudio
 
@@ -268,6 +321,8 @@ Erro de validação:
 |---:|---|
 | 201 | recurso criado |
 | 204 | exclusão concluída |
+| 401 | sessão ausente, inválida ou expirada |
+| 403 | usuário autenticado sem permissão |
 | 404 | recurso não encontrado |
 | 409 | conflito de estado ou limite |
 | 422 | JSON, campo ou data inválida |

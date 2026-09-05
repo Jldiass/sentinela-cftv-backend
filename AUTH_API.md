@@ -22,7 +22,7 @@ um refresh token antigo revoga toda a família daquela sessão.
 
 | Método | Endpoint | Autenticação | Uso |
 |---|---|---|---|
-| `POST` | `/api/v1/auth/register` | pública | cadastrar usuário e iniciar sessão |
+| `POST` | `/api/v1/auth/register` | pública só no primeiro acesso | criar o administrador inicial |
 | `POST` | `/api/v1/auth/login` | pública | autenticar e iniciar sessão |
 | `POST` | `/api/v1/auth/refresh` | cookie | renovar access e refresh token |
 | `POST` | `/api/v1/auth/logout` | cookie | encerrar a sessão atual |
@@ -60,7 +60,8 @@ Resposta `201`:
 }
 ```
 
-Conflito de e-mail retorna `409`. E-mail inválido, senha menor que 12 caracteres
+Após a primeira conta, o endpoint retorna `403`; novas contas são criadas por um
+administrador em `/api/v1/users`. E-mail inválido, senha menor que 12 caracteres
 ou campos extras retornam `422`.
 
 ### `POST /api/v1/auth/login`
@@ -175,6 +176,8 @@ export type AuthSession = {
     is_active: boolean;
     created_at: string;
     last_login_at: string | null;
+    roles: string[];
+    permissions: string[];
   };
 };
 

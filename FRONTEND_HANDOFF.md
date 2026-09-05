@@ -55,13 +55,9 @@ export interface Camera {
   audio_enabled: boolean;
   pre_alarm_seconds: number;
   post_alarm_seconds: number;
-  stream_key: string;
-  stream_path: string;
   enabled: boolean;
   created_at: string;
   status: CameraStatus;
-  rtmp_server_url: string;
-  rtmp_url: string;
   hls_url: string;
   effective_retention_hours: number;
 }
@@ -190,7 +186,8 @@ Crie com `POST /cameras`. Exemplo:
 }
 ```
 
-Após criar, mostre as duas formas de configuração, com a primeira em destaque:
+Após criar, consulte `GET /cameras/{id}/stream` com um usuário que possua
+`cameras.manage` e mostre as duas formas de configuração:
 
 - **Mibo Smart/Mibo Cam:** botão “Copiar URL para Mibo” que copia `rtmp_url`;
 - **campos separados:** botão para copiar `rtmp_server_url` e outro para copiar
@@ -287,7 +284,6 @@ Formato comum:
 
 ## Fora do escopo deste beta
 
-- contas individuais e permissões por operador;
 - PTZ;
 - reconhecimento/analytics;
 - notificações push;

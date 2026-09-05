@@ -21,6 +21,19 @@ from app.services.mediamtx import mediamtx, parse_path_statuses
 from app.services.presentation import event_output
 
 
+def admin_headers(client: TestClient) -> dict[str, str]:
+    response = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "admin@example.com",
+            "full_name": "Administrador",
+            "password": "Senha-Forte-123!",
+        },
+    )
+    assert response.status_code == 201
+    return {"Authorization": f"Bearer {response.json()['access_token']}"}
+
+
 def test_camera_event_and_recording_flow(monkeypatch):
     async def fake_statuses():
         return {}
@@ -32,6 +45,7 @@ def test_camera_event_and_recording_flow(monkeypatch):
     monkeypatch.setattr(mediamtx, "list_recordings", fake_recordings)
 
     with TestClient(app) as client:
+        headers = admin_headers(client)
         health = client.get("/health")
         assert health.status_code == 200
         assert health.json()["ok"] is True
@@ -39,6 +53,7 @@ def test_camera_event_and_recording_flow(monkeypatch):
 
         created = client.post(
             "/api/v1/cameras",
+            headers=headers,
             json={
                 "name": "Entrada",
                 "location": "Recepção",
@@ -50,28 +65,26 @@ def test_camera_event_and_recording_flow(monkeypatch):
         assert created.status_code == 201
         camera = created.json()
         camera_id = camera["id"]
-        original_key = camera["stream_key"]
         assert camera["effective_retention_hours"] == 1
-        assert camera["stream_path"] == f"live/{original_key}"
-        assert camera["rtmp_server_url"] == "rtmp://localhost:1935/live"
-        assert camera["rtmp_url"] == f"{camera['rtmp_server_url']}/{original_key}"
-        assert camera["hls_url"].endswith(
-            f"/live/{original_key}/index.m3u8?cookieCheck=1"
-        )
+        assert "stream_key" not in camera
+        assert "rtmp_url" not in camera
 
-        listed = client.get("/api/v1/cameras")
+        listed = client.get("/api/v1/cameras", headers=headers)
         assert listed.status_code == 200
         assert len(listed.json()) == 1
 
         updated = client.patch(
-            f"/api/v1/cameras/{camera_id}", json={"location": "Portaria"}
+            f"/api/v1/cameras/{camera_id}",
+            headers=headers,
+            json={"location": "Portaria"},
         )
         assert updated.status_code == 200
         assert updated.json()["location"] == "Portaria"
 
-        credentials = client.get(f"/api/v1/cameras/{camera_id}/stream")
+        credentials = client.get(f"/api/v1/cameras/{camera_id}/stream", headers=headers)
         assert credentials.status_code == 200
         stream = credentials.json()
+        original_key = stream["stream_key"]
         assert stream["stream_path"] == f"live/{original_key}"
         assert stream["rtmp_server_url"] == "rtmp://localhost:1935/live"
         assert stream["stream_key"] == original_key
@@ -90,6 +103,7 @@ def test_camera_event_and_recording_flow(monkeypatch):
 
         event = client.post(
             f"/api/v1/cameras/{camera_id}/events",
+            headers=headers,
             json={
                 "kind": "zona-01",
                 "note": "Movimento",
@@ -103,6 +117,7 @@ def test_camera_event_and_recording_flow(monkeypatch):
 
         old_event = client.post(
             f"/api/v1/cameras/{camera_id}/events",
+            headers=headers,
             json={
                 "kind": "atrasado",
                 "happened_at": (
@@ -114,6 +129,7 @@ def test_camera_event_and_recording_flow(monkeypatch):
 
         future_event = client.post(
             f"/api/v1/cameras/{camera_id}/events",
+            headers=headers,
             json={
                 "kind": "futuro",
                 "happened_at": (
@@ -123,17 +139,24 @@ def test_camera_event_and_recording_flow(monkeypatch):
         )
         assert future_event.status_code == 422
 
-        recordings = client.get(f"/api/v1/cameras/{camera_id}/recordings")
+        recordings = client.get(
+            f"/api/v1/cameras/{camera_id}/recordings", headers=headers
+        )
         assert recordings.status_code == 200
         assert recordings.json()[0]["url"].endswith("format=mp4")
 
-        rotated = client.post(f"/api/v1/cameras/{camera_id}/stream-key/rotate")
+        rotated = client.post(
+            f"/api/v1/cameras/{camera_id}/stream-key/rotate", headers=headers
+        )
         assert rotated.status_code == 200
         assert rotated.json()["stream_key"] != original_key
 
-        deleted = client.delete(f"/api/v1/cameras/{camera_id}")
+        deleted = client.delete(f"/api/v1/cameras/{camera_id}", headers=headers)
         assert deleted.status_code == 204
-        assert client.get(f"/api/v1/cameras/{camera_id}").status_code == 404
+        assert (
+            client.get(f"/api/v1/cameras/{camera_id}", headers=headers).status_code
+            == 404
+        )
 
 
 def test_validation_and_not_found(monkeypatch):
@@ -142,16 +165,24 @@ def test_validation_and_not_found(monkeypatch):
 
     monkeypatch.setattr(mediamtx, "path_statuses", fake_statuses)
     with TestClient(app) as client:
-        assert client.post("/api/v1/cameras", json={"name": "x"}).status_code == 422
+        assert client.get("/api/v1/cameras").status_code == 401
+        headers = admin_headers(client)
+        assert (
+            client.post(
+                "/api/v1/cameras", headers=headers, json={"name": "x"}
+            ).status_code
+            == 422
+        )
         assert (
             client.post(
                 "/api/v1/cameras",
+                headers=headers,
                 json={"name": "Entrada", "retention_days": 7},
             ).status_code
             == 422
         )
-        assert client.get("/api/v1/cameras/999999").status_code == 404
-        assert client.get("/api/v1/events/999999").status_code == 404
+        assert client.get("/api/v1/cameras/999999", headers=headers).status_code == 404
+        assert client.get("/api/v1/events/999999", headers=headers).status_code == 404
 
 
 def test_event_clip_lifecycle():
@@ -204,19 +235,29 @@ def test_camera_limit(monkeypatch):
 
     monkeypatch.setattr(mediamtx, "path_statuses", fake_statuses)
     with TestClient(app) as client:
+        headers = admin_headers(client)
         camera_ids = []
         for index in range(8):
             response = client.post(
-                "/api/v1/cameras", json={"name": f"Câmera {index + 1}"}
+                "/api/v1/cameras",
+                headers=headers,
+                json={"name": f"Câmera {index + 1}"},
             )
             assert response.status_code == 201
             camera_ids.append(response.json()["id"])
 
-        overflow = client.post("/api/v1/cameras", json={"name": "Câmera 9"})
+        overflow = client.post(
+            "/api/v1/cameras", headers=headers, json={"name": "Câmera 9"}
+        )
         assert overflow.status_code == 409
 
         for camera_id in camera_ids:
-            assert client.delete(f"/api/v1/cameras/{camera_id}").status_code == 204
+            assert (
+                client.delete(
+                    f"/api/v1/cameras/{camera_id}", headers=headers
+                ).status_code
+                == 204
+            )
 
 
 def test_retention_configuration_is_strict():
@@ -258,7 +299,8 @@ def test_openapi_contract_exposes_global_retention_and_clip_state():
     assert "retention_days" not in camera_create
     assert "retention_hours" not in camera_create
     assert "effective_retention_hours" in camera_out
-    assert "stream_path" in camera_out
-    assert "rtmp_server_url" in camera_out
+    assert "stream_path" not in camera_out
+    assert "rtmp_server_url" not in camera_out
+    assert "stream_key" not in camera_out
     assert "clip_status" in event_out
     assert "available_until" in event_out
