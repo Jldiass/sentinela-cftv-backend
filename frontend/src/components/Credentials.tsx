@@ -72,7 +72,7 @@ export function Credentials({
       <div className="modal-actions">
         <button className="button warning" onClick={onRotate} disabled={rotating}>
           <RotateCw size={16} />
-          {rotating ? "Trocando..." : "Trocar chave"}
+          {rotating ? "Trocando…" : "Trocar chave"}
         </button>
       </div>
     </div>

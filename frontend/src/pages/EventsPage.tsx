@@ -3,10 +3,12 @@ import { BellRing, Eye, Play, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { camerasApi } from "../api/cameras";
 import { eventsApi } from "../api/events";
+import { useAuth } from "../auth/useAuth";
 import { Modal } from "../components/Modal";
 import { apiMessage } from "../hooks/useApiError";
 import type { AlarmEvent, ClipStatus } from "../types/api";
 export function EventsPage() {
+  const { can } = useAuth();
   const client = useQueryClient();
   const [cameraId, setCameraId] = useState<number | "">("");
   const [creating, setCreating] = useState(false);
@@ -61,15 +63,19 @@ export function EventsPage() {
           <h1>Eventos</h1>
           <p>Clipes preservam o pré e o pós-alarme configurados na câmera.</p>
         </div>
-        <button className="button primary" onClick={() => setCreating(true)} disabled={!cameraId}>
-          <Plus size={17} />
-          Registrar evento
-        </button>
+        {can("events.manage") && (
+          <button className="button primary" onClick={() => setCreating(true)} disabled={!cameraId}>
+            <Plus size={17} />
+            Registrar evento
+          </button>
+        )}
       </header>
       {notice && (
-        <div className="alert error">
+        <div className="alert error" role="alert">
           {notice}
-          <button onClick={() => setNotice(null)}>×</button>
+          <button onClick={() => setNotice(null)} aria-label="Fechar aviso">
+            ×
+          </button>
         </div>
       )}
       <section className="toolbar">
@@ -114,8 +120,12 @@ export function EventsPage() {
               </small>
             </div>
             <div className="event-state">
-              <button className="icon-button" onClick={() => showDetails(event.id)} title="Ver detalhes">
-                <Eye size={16} />
+              <button
+                className="icon-button"
+                onClick={() => showDetails(event.id)}
+                aria-label={`Ver detalhes do evento ${event.kind}`}
+              >
+                <Eye size={16} aria-hidden="true" />
               </button>
               <span className={`clip clip-${event.clip_status}`}>
                 {event.clip_status === "pending"
@@ -130,18 +140,22 @@ export function EventsPage() {
                   href={event.playback_url}
                   target="_blank"
                   rel="noreferrer"
-                  title="Reproduzir"
+                  aria-label={`Reproduzir evento ${event.kind}`}
                 >
                   <Play size={16} />
                 </a>
               )}
-              <button
-                className="icon-button danger"
-                onClick={() => remove.mutate(event.id)}
-                title="Remover evento"
-              >
-                <Trash2 size={16} />
-              </button>
+              {can("events.manage") && (
+                <button
+                  className="icon-button danger"
+                  onClick={() => {
+                    if (window.confirm(`Remover o evento “${event.kind}”?`)) remove.mutate(event.id);
+                  }}
+                  aria-label={`Remover evento ${event.kind}`}
+                >
+                  <Trash2 size={16} />
+                </button>
+              )}
             </div>
           </article>
         ))}
@@ -184,7 +198,7 @@ export function EventsPage() {
                 Cancelar
               </button>
               <button className="button primary" onClick={() => create.mutate()} disabled={create.isPending}>
-                {create.isPending ? "Registrando..." : "Registrar"}
+                {create.isPending ? "Registrando…" : "Registrar"}
               </button>
             </footer>
           </div>

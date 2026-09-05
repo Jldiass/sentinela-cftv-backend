@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Edit3, Eye, KeyRound, Plus, Search, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { camerasApi } from "../api/cameras";
+import { useAuth } from "../auth/useAuth";
 import { CameraForm } from "../components/CameraForm";
 import { CameraDetails } from "../components/CameraDetails";
 import { Credentials } from "../components/Credentials";
@@ -10,6 +11,7 @@ import { CameraStatusBadge } from "../components/Status";
 import { apiMessage } from "../hooks/useApiError";
 import type { Camera, CameraInput, CameraUpdate, StreamCredentials } from "../types/api";
 export function CamerasPage() {
+  const { can } = useAuth();
   const client = useQueryClient();
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<Camera | null | "new">(null);
@@ -27,18 +29,16 @@ export function CamerasPage() {
       editing === "new"
         ? camerasApi.create(input as CameraInput)
         : camerasApi.update((editing as Camera).id, input as CameraUpdate),
-    onSuccess: (camera) => {
+    onSuccess: async (camera) => {
       refresh();
       setEditing(null);
-      if (editing === "new")
-        setCredentials({
-          camera_id: camera.id,
-          stream_key: camera.stream_key,
-          stream_path: camera.stream_path,
-          rtmp_server_url: camera.rtmp_server_url,
-          rtmp_url: camera.rtmp_url,
-          hls_url: camera.hls_url,
-        });
+      if (editing === "new") {
+        try {
+          setCredentials(await camerasApi.stream(camera.id));
+        } catch (error) {
+          setNotice(`Câmera cadastrada, mas as credenciais não puderam ser abertas: ${apiMessage(error)}`);
+        }
+      }
     },
     onError: (error) =>
       setNotice(`${editing === "new" ? "Cadastro" : "Atualização"} da câmera: ${apiMessage(error)}`),
@@ -93,26 +93,31 @@ export function CamerasPage() {
           <h1>Câmeras</h1>
           <p>Até oito cadastros. URLs de publicação são geradas pelo servidor.</p>
         </div>
-        <button className="button primary" onClick={() => setEditing("new")}>
-          <Plus size={17} />
-          Nova câmera
-        </button>
+        {can("cameras.manage") && (
+          <button className="button primary" onClick={() => setEditing("new")}>
+            <Plus size={17} />
+            Nova câmera
+          </button>
+        )}
       </header>
       {notice && (
-        <div className="alert error">
+        <div className="alert error" role="alert">
           {notice}
-          <button onClick={() => setNotice(null)}>×</button>
+          <button onClick={() => setNotice(null)} aria-label="Fechar aviso">
+            ×
+          </button>
         </div>
       )}
       <section className="toolbar">
-        <div className="search">
-          <Search size={17} />
+        <label className="search">
+          <Search size={17} aria-hidden="true" />
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Buscar por nome ou localização"
+            placeholder="Nome ou localização…"
+            aria-label="Buscar câmeras"
           />
-        </div>
+        </label>
         <span>
           {filtered.length} de {cameras.data?.length ?? 0} câmeras
         </span>
@@ -150,29 +155,41 @@ export function CamerasPage() {
                     {camera.pre_alarm_seconds}s antes · {camera.post_alarm_seconds}s depois
                   </td>
                   <td>
-                    <button className="text-button" onClick={() => showCredentials(camera.id)}>
-                      <KeyRound size={15} />
-                      RTMP
-                    </button>
+                    {can("cameras.manage") ? (
+                      <button className="text-button" onClick={() => showCredentials(camera.id)}>
+                        <KeyRound size={15} />
+                        RTMP
+                      </button>
+                    ) : (
+                      "Restrita"
+                    )}
                   </td>
                   <td className="actions">
                     <button
                       className="icon-button"
-                      title="Ver detalhes"
+                      aria-label={`Ver detalhes de ${camera.name}`}
                       onClick={() => showDetails(camera.id)}
                     >
-                      <Eye size={16} />
+                      <Eye size={16} aria-hidden="true" />
                     </button>
-                    <button className="icon-button" title="Editar" onClick={() => setEditing(camera)}>
-                      <Edit3 size={16} />
-                    </button>
-                    <button
-                      className="icon-button danger"
-                      title="Excluir"
-                      onClick={() => deleteCamera(camera)}
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                    {can("cameras.manage") && (
+                      <button
+                        className="icon-button"
+                        aria-label={`Editar ${camera.name}`}
+                        onClick={() => setEditing(camera)}
+                      >
+                        <Edit3 size={16} aria-hidden="true" />
+                      </button>
+                    )}
+                    {can("cameras.manage") && (
+                      <button
+                        className="icon-button danger"
+                        aria-label={`Excluir ${camera.name}`}
+                        onClick={() => deleteCamera(camera)}
+                      >
+                        <Trash2 size={16} aria-hidden="true" />
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

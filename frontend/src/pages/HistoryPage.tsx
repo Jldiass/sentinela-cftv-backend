@@ -16,15 +16,16 @@ export function HistoryPage() {
       camerasApi.recordings(Number(cameraId), new Date(start).toISOString(), new Date(end).toISOString()),
     enabled: Boolean(cameraId) && new Date(start) < new Date(end),
   });
+  const retention = cameras.data?.[0]?.effective_retention_hours;
   return (
     <>
       <header className="page-heading">
         <div>
           <p className="eyebrow">ARQUIVO OPERACIONAL</p>
           <h1>Histórico</h1>
-          <p>Consulta limitada à janela móvel de uma hora.</p>
+          <p>Consulta limitada à janela móvel definida pela central.</p>
         </div>
-        <span className="retention">HISTÓRICO: 1 HORA</span>
+        <span className="retention">HISTÓRICO: {retention ? `${retention}H` : "--"}</span>
       </header>
       <section className="filter-panel">
         <label>

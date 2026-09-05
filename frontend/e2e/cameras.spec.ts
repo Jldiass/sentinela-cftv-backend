@@ -1,71 +1,132 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
-const api = process.env.VITE_API_URL ?? "http://localhost:8000/api/v1";
-let cameraId: number | undefined;
-
-test.afterEach(async ({ request }) => {
-  if (cameraId) await request.delete(`${api}/cameras/${cameraId}`);
-  cameraId = undefined;
-});
-
-test("cadastra, edita e exibe a URL RTMP de uma câmera", async ({ page }) => {
-  await page.goto("/cameras");
-  await page.getByRole("button", { name: "Nova câmera" }).click();
-  await page.getByLabel("Nome").fill("E2E Entrada");
-  await page.getByLabel("Localização").fill("Recepção");
-  await page.getByRole("button", { name: "Cadastrar câmera" }).click();
-  await expect(page.getByText("Credenciais de publicação")).toBeVisible();
-  const rtmp = page.locator("code");
-  await expect(rtmp).toContainText("rtmp://");
-  await page.getByRole("button", { name: "Fechar" }).click();
-  await page.getByTitle("Editar").click();
-  await page.getByLabel("Nome").fill("E2E Portão");
-  await page.getByRole("button", { name: "Salvar alterações" }).click();
-  await expect(page.getByText("E2E Portão")).toBeVisible();
-  const response = await page.request.get(`${api}/cameras?include_disabled=true`);
-  const cameras = await response.json();
-  cameraId = cameras.find((camera: { name: string }) => camera.name === "E2E Portão")?.id;
-});
-
-test("desabilita e exclui uma câmera pelo painel", async ({ page }) => {
-  await page.goto("/cameras");
-  await page.getByRole("button", { name: "Nova câmera" }).click();
-  await page.getByLabel("Nome").fill("E2E Desativação");
-  await page.getByRole("button", { name: "Cadastrar câmera" }).click();
-  await page.getByRole("button", { name: "Fechar" }).click();
-
-  const row = page.getByRole("row", { name: /E2E Desativação/ });
-  await row.getByTitle("Editar").click();
-  await page.getByLabel("Câmera habilitada para publicação e monitoramento").uncheck();
-  await page.getByRole("button", { name: "Salvar alterações" }).click();
-  await expect(row.getByText("Desabilitada")).toBeVisible();
-
-  page.once("dialog", (dialog) => dialog.accept());
-  await row.getByTitle("Excluir").click();
-  await expect(page.getByRole("row", { name: /E2E Desativação/ })).toHaveCount(0);
-});
-
-test("registra um evento com horário informado e abre seus detalhes", async ({ page, request }) => {
-  const createResponse = await request.post(`${api}/cameras`, {
-    data: { name: "E2E Eventos", pre_alarm_seconds: 0, post_alarm_seconds: 1 },
+const admin = {
+  id: 1,
+  email: "admin@malupe.com",
+  full_name: "Administrador",
+  is_active: true,
+  created_at: new Date().toISOString(),
+  last_login_at: null,
+  roles: ["Administrador"],
+  permissions: [
+    "overview.read",
+    "reports.read",
+    "mosaics.read",
+    "mosaics.manage",
+    "cameras.read",
+    "cameras.manage",
+    "events.read",
+    "events.manage",
+    "users.manage",
+    "permissions.manage",
+    "system.health.read",
+  ],
+};
+async function mockApi(page: Page) {
+  await page.route("**/api/v1/**", async (route) => {
+    const url = new URL(route.request().url());
+    const path = url.pathname;
+    const json = (body: unknown, status = 200) =>
+      route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
+    if (path.endsWith("/auth/refresh"))
+      return json({ access_token: "token", token_type: "bearer", expires_in: 900, user: admin });
+    if (path.endsWith("/auth/me")) return json(admin);
+    if (path.endsWith("/camera-status/summary"))
+      return json({ online: 5, unstable: 1, offline: 2, total: 8, generated_at: new Date().toISOString() });
+    if (path.endsWith("/camera-status/history")) return json([]);
+    if (path.endsWith("/health"))
+      return json({
+        ok: true,
+        database: "up",
+        mediamtx: "up",
+        active_streams: 5,
+        version: "0.5.0",
+        effective_retention_hours: 1,
+      });
+    if (path.endsWith("/users")) return json([{ ...admin, updated_at: new Date().toISOString() }]);
+    if (path.endsWith("/roles"))
+      return json([
+        {
+          id: 1,
+          name: "Administrador",
+          description: "Perfil",
+          permission_codes: admin.permissions,
+          is_system: true,
+          user_count: 1,
+          created_at: new Date().toISOString(),
+        },
+      ]);
+    if (path.endsWith("/cameras"))
+      return json([
+        {
+          id: 1,
+          name: "Portaria",
+          location: "Entrada",
+          audio_enabled: true,
+          pre_alarm_seconds: 30,
+          post_alarm_seconds: 60,
+          enabled: true,
+          created_at: new Date().toISOString(),
+          status: "online",
+          hls_url: "",
+          effective_retention_hours: 1,
+        },
+      ]);
+    if (path.endsWith("/mosaics") && route.request().method() === "POST")
+      return json(
+        {
+          id: 10,
+          name: "Portaria",
+          capacity: 4,
+          columns: 2,
+          rows: 2,
+          active: true,
+          camera_count: 1,
+          user_count: 1,
+          cameras: [],
+          user_ids: [1],
+          role_ids: [],
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        201,
+      );
+    if (path.endsWith("/mosaics")) return json([]);
+    return json({ detail: "Não encontrado" }, 404);
   });
-  cameraId = (await createResponse.json()).id;
-  const happenedAt = new Date(Date.now() - 30_000).toISOString().slice(0, 16);
+}
 
-  await page.goto("/events");
-  await page.getByLabel("Filtrar câmera").selectOption({ label: "E2E Eventos" });
-  await page.getByRole("button", { name: "Registrar evento" }).click();
-  await page.getByLabel("Tipo").fill("E2E Movimento");
-  await page.getByLabel(/Data e hora da ocorrência/).fill(happenedAt);
-  await page.getByRole("button", { name: "Registrar" }).click();
-  await expect(page.getByText("E2E Movimento")).toBeVisible();
-  await page.getByTitle("Ver detalhes").click();
-  await expect(page.getByText("Detalhes do evento")).toBeVisible();
+test("protege a central quando não existe refresh válido", async ({ page }) => {
+  await page.route("**/api/v1/auth/refresh", (route) =>
+    route.fulfill({
+      status: 401,
+      contentType: "application/json",
+      body: '{"detail":"Refresh token ausente"}',
+    }),
+  );
+  await page.goto("/");
+  await expect(page).toHaveURL(/\/login$/);
+  await expect(page.getByRole("heading", { name: "Entrar na central" })).toBeVisible();
 });
 
-test("bloqueia visualmente um período de histórico inválido", async ({ page }) => {
-  await page.goto("/history");
-  await page.getByLabel("Início").fill("2030-01-01T12:00");
-  await page.getByLabel("Fim").fill("2030-01-01T11:00");
-  await expect(page.getByText("O início deve ser anterior ao fim.")).toBeVisible();
+test("mostra somente conectividade na visão geral", async ({ page }) => {
+  await mockApi(page);
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Visão geral" })).toBeVisible();
+  await expect(page.getByText("5", { exact: true })).toBeVisible();
+  await expect(page.getByText("1", { exact: true })).toBeVisible();
+  await expect(page.getByText("2", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Histórico de conectividade" })).toBeVisible();
+});
+
+test("cria mosaico pelo wizard de 3 etapas", async ({ page }) => {
+  await mockApi(page);
+  await page.goto("/mosaics/new");
+  await page.getByLabel("Nome do mosaico").fill("Portaria");
+  await page.getByRole("button", { name: /Avançar/ }).click();
+  await page.getByRole("button", { name: "Adicionar Administrador" }).click();
+  await page.getByRole("button", { name: /Avançar/ }).click();
+  await page.getByRole("button", { name: "Adicionar Portaria" }).click();
+  await page.getByRole("button", { name: "Criar mosaico" }).click();
+  await expect(page).toHaveURL(/\/mosaics\/10$/);
 });

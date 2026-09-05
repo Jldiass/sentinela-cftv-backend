@@ -1,5 +1,5 @@
 import { X } from "lucide-react";
-import type { ReactNode } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 export function Modal({
   title,
   children,
@@ -9,17 +9,34 @@ export function Modal({
   children: ReactNode;
   onClose: () => void;
 }) {
+  const ref = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
+  useEffect(() => {
+    const dialog = ref.current;
+    if (!dialog) return;
+    dialog.showModal();
+    return () => dialog.close();
+  }, []);
   return (
-    <div className="modal-backdrop" role="presentation">
-      <section className="modal" role="dialog" aria-modal="true" aria-label={title}>
-        <header>
-          <h2>{title}</h2>
-          <button className="icon-button" onClick={onClose} aria-label="Fechar">
-            <X size={18} />
-          </button>
-        </header>
-        {children}
-      </section>
-    </div>
+    <dialog
+      ref={ref}
+      className="modal"
+      aria-labelledby={titleId}
+      onCancel={(event) => {
+        event.preventDefault();
+        onClose();
+      }}
+      onClick={(event) => {
+        if (event.target === ref.current) onClose();
+      }}
+    >
+      <header>
+        <h2 id={titleId}>{title}</h2>
+        <button className="icon-button" onClick={onClose} aria-label="Fechar">
+          <X size={18} aria-hidden="true" />
+        </button>
+      </header>
+      {children}
+    </dialog>
   );
 }

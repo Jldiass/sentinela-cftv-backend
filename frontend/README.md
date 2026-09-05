@@ -10,6 +10,12 @@ Painel operacional para monitoramento CFTV. A aplicação consome a API Malupe C
 - criação, consulta e remoção de eventos com pré/pós-alarme;
 - painel de saúde para PostgreSQL e MediaMTX;
 - tema escuro operacional como padrão e alternador persistente para modo claro.
+- login real com access token somente em memória e refresh token em cookie `HttpOnly`;
+- primeiro acesso, recuperação e redefinição de senha;
+- rotas e ações condicionadas pelas permissões devolvidas pela API;
+- mosaicos persistentes de 1 a 36 posições com associação de usuários, perfis e câmeras;
+- gestão de usuários, perfis e permissões;
+- resumo e histórico de conectividade online, instável e offline.
 
 ## Pré-requisitos
 
@@ -36,6 +42,34 @@ VITE_API_URL=http://localhost:8000/api/v1
 ```
 
 O frontend deriva o endpoint de saúde da mesma origem (`/health`). Não coloque URLs de HLS, RTMP ou playback no código: elas são devolvidas pelo backend em cada resposta.
+
+## Fluxo de autenticação
+
+1. Em uma instalação vazia, abra `/register` para criar o único administrador inicial.
+2. Depois disso, novas contas são criadas em **Usuários** por quem possui `users.manage`.
+3. O access token fica somente em memória. O refresh token nunca é lido pelo JavaScript.
+4. Ao receber `401`, o cliente compartilha uma única tentativa de `/auth/refresh` e repete a chamada.
+5. `403` mantém a sessão e mostra que o perfil não permite a operação.
+
+Principais permissões usadas na navegação: `overview.read`, `mosaics.read`,
+`mosaics.manage`, `cameras.read`, `cameras.manage`, `events.read`,
+`events.manage`, `reports.read`, `users.manage`, `permissions.manage` e
+`system.health.read`.
+
+## Contratos consumidos
+
+| Área          | Endpoints                                                        |
+| ------------- | ---------------------------------------------------------------- |
+| Sessão        | `/auth/login`, `/auth/refresh`, `/auth/logout`, `/auth/me`       |
+| Recuperação   | `/auth/forgot-password`, `/auth/reset-password`                  |
+| Câmeras       | `/cameras`, `/cameras/{id}/stream`, gravações e rotação de chave |
+| Mosaicos      | `/mosaics`, `/mosaics/{id}`, `/mosaics/{id}/view`                |
+| Acesso        | `/users`, `/roles`, `/permissions`                               |
+| Conectividade | `/camera-status/summary`, `/camera-status/history`               |
+
+O cadastro e a listagem comuns de câmeras não recebem chave nem URL RTMP. Essas
+credenciais são buscadas separadamente por `/cameras/{id}/stream`, que exige
+`cameras.manage`.
 
 Para iniciar o backend localmente:
 

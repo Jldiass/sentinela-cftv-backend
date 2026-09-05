@@ -58,7 +58,7 @@ export function CameraForm({
     >
       <label className="field field-wide">
         Nome
-        <input autoFocus {...register("name")} />
+        <input autoComplete="off" {...register("name")} />
         <em>{errors.name?.message}</em>
       </label>
       <label className="field field-wide">
@@ -89,7 +89,7 @@ export function CameraForm({
           Cancelar
         </button>
         <button className="button primary" disabled={busy}>
-          {busy ? "Salvando..." : camera ? "Salvar alterações" : "Cadastrar câmera"}
+          {busy ? "Salvando…" : camera ? "Salvar alterações" : "Cadastrar câmera"}
         </button>
       </footer>
     </form>

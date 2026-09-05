@@ -30,7 +30,7 @@ export function HealthPage() {
       <section className="health-grid">
         <article>
           <small>API E BANCO DE DADOS</small>
-          <strong>PostgreSQL</strong>
+          <strong>Banco de dados</strong>
           <ServiceStatus up={data?.database === "up"} />
         </article>
         <article>

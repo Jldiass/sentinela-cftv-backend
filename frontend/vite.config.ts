@@ -1,6 +1,13 @@
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import { Buffer } from "node:buffer";
+import { timingSafeEqual } from "node:crypto";
+
+function safeEqual(a: string, b: string) {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  return bufA.length === bufB.length && timingSafeEqual(bufA, bufB);
+}
 
 function previewBasicAuth() {
   return {
@@ -26,7 +33,7 @@ function previewBasicAuth() {
 
       const expected = `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`;
       server.middlewares.use((request, response, next) => {
-        if (request.headers.authorization === expected) {
+        if (request.headers.authorization && safeEqual(request.headers.authorization, expected)) {
           next();
           return;
         }
